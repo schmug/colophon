@@ -1,0 +1,59 @@
+name: OpenExample 7B
+link: https://example.org/openexample
+type: text
+performanceclass: small
+basemodelname: OpenExample-base
+endmodelname: OpenExample-7B-instruct
+endmodellicense: Apache 2.0
+releasedate: 2025 SEP
+organisation:
+  name: Open Example Collective
+  link: https://example.org
+
+availability_datasources_basemodel_class: open
+availability_datasources_basemodel_link: https://example.org/data
+availability_datasources_basemodel_notes: Full pretraining corpus published with per-source manifests and hashes.
+
+availability_datasources_endmodel_class: open
+availability_datasources_endmodel_link: https://example.org/sft
+availability_datasources_endmodel_notes: Instruction-tuning sets released in full under open license.
+
+availability_weights_basemodel_class: open
+availability_weights_basemodel_link: https://example.org/weights-base
+availability_weights_basemodel_notes: Base weights downloadable without gating.
+
+availability_weights_endmodel_class: open
+availability_weights_endmodel_link: https://example.org/weights
+availability_weights_endmodel_notes: Instruct weights downloadable without gating.
+
+availability_trainingcode_class: open
+availability_trainingcode_link: https://example.org/code
+availability_trainingcode_notes: Data processing, pretraining and tuning code all public.
+
+documentation_code_class: open
+documentation_code_link: https://example.org/docs
+documentation_code_notes: Every training step is documented.
+
+documentation_hardware_class: open
+documentation_hardware_link: https://example.org/hardware
+documentation_hardware_notes: Cluster configuration and training setup fully described.
+
+documentation_preprint_class: open
+documentation_preprint_link: https://arxiv.org/abs/0000.00000
+documentation_preprint_notes: Preprint covers data, pretraining and tuning.
+
+documentation_paper_class: open
+documentation_paper_link: https://example.org/paper
+documentation_paper_notes: Peer-reviewed publication covering all components.
+
+documentation_modelcard_class: open
+documentation_modelcard_link: https://example.org/modelcard
+documentation_modelcard_notes: Comprehensive model card with architecture and evaluation.
+
+documentation_datasheet_class: open
+documentation_datasheet_link: https://example.org/datasheet
+documentation_datasheet_notes: Datasheet follows Gebru et al. 2021 standard.
+
+access_licenses_class: open
+access_licenses_link: https://example.org/license
+access_licenses_notes: Weights, code and data all under open licenses.

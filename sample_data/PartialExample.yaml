@@ -1,0 +1,59 @@
+name: PartialExample 70B
+link: https://example.com/partialexample
+type: text
+performanceclass: medium
+basemodelname: PartialExample-base
+endmodelname: PartialExample-70B-chat
+endmodellicense: Custom community license
+releasedate: 2025 NOV
+organisation:
+  name: Partial Example Inc
+  link: https://example.com
+
+availability_datasources_basemodel_class: closed
+availability_datasources_basemodel_link: https://example.com/blog
+availability_datasources_basemodel_notes: Training data described only as a large web mixture; sources not shared.
+
+availability_datasources_endmodel_class: closed
+availability_datasources_endmodel_link: https://example.com/blog
+availability_datasources_endmodel_notes: Fine-tuning data not disclosed.
+
+availability_weights_basemodel_class: partial
+availability_weights_basemodel_link: https://example.com/weights
+availability_weights_basemodel_notes: Weights available via gated download requiring acceptance of terms.
+
+availability_weights_endmodel_class: partial
+availability_weights_endmodel_link: https://example.com/weights
+availability_weights_endmodel_notes: Chat weights gated behind a license click-through.
+
+availability_trainingcode_class: closed
+availability_trainingcode_link:
+availability_trainingcode_notes: Training pipeline not released.
+
+documentation_code_class: closed
+documentation_code_link:
+documentation_code_notes: No training code documentation.
+
+documentation_hardware_class: partial
+documentation_hardware_link: https://example.com/blog
+documentation_hardware_notes: Cluster scale mentioned but setup not fully documented.
+
+documentation_preprint_class: partial
+documentation_preprint_link: https://arxiv.org/abs/0000.00001
+documentation_preprint_notes: Preprint covers architecture and evaluation but not data sources.
+
+documentation_paper_class: closed
+documentation_paper_link:
+documentation_paper_notes: No peer-reviewed paper.
+
+documentation_modelcard_class: partial
+documentation_modelcard_link: https://example.com/modelcard
+documentation_modelcard_notes: Model card gives partial insight, omits data provenance.
+
+documentation_datasheet_class: closed
+documentation_datasheet_link:
+documentation_datasheet_notes: No datasheet.
+
+access_licenses_class: partial
+access_licenses_link: https://example.com/license
+access_licenses_notes: Weights under a custom license; data and full code not openly licensed.

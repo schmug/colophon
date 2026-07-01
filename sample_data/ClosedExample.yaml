@@ -1,0 +1,59 @@
+name: ClosedExample Max
+link: https://closedexample.ai
+type: text
+performanceclass: large
+basemodelname:
+endmodelname: ClosedExample-Max
+endmodellicense: Proprietary, API terms of service
+releasedate: 2026 FEB
+organisation:
+  name: Closed Example Corp
+  link: https://closedexample.ai
+
+availability_datasources_basemodel_class: closed
+availability_datasources_basemodel_link: https://closedexample.ai/terms
+availability_datasources_basemodel_notes: No information on training data sources.
+
+availability_datasources_endmodel_class: closed
+availability_datasources_endmodel_link: https://closedexample.ai/terms
+availability_datasources_endmodel_notes: Alignment data not disclosed.
+
+availability_weights_basemodel_class: closed
+availability_weights_basemodel_link:
+availability_weights_basemodel_notes: Weights not shared; API access only.
+
+availability_weights_endmodel_class: closed
+availability_weights_endmodel_link:
+availability_weights_endmodel_notes: Weights not shared; API access only.
+
+availability_trainingcode_class: closed
+availability_trainingcode_link:
+availability_trainingcode_notes: No training code available.
+
+documentation_code_class: closed
+documentation_code_link:
+documentation_code_notes: No code documentation.
+
+documentation_hardware_class: closed
+documentation_hardware_link:
+documentation_hardware_notes: Training hardware not documented.
+
+documentation_preprint_class: closed
+documentation_preprint_link:
+documentation_preprint_notes: No preprint.
+
+documentation_paper_class: closed
+documentation_paper_link:
+documentation_paper_notes: No peer-reviewed paper.
+
+documentation_modelcard_class: partial
+documentation_modelcard_link: https://closedexample.ai/model-card
+documentation_modelcard_notes: Marketing-style card with limited technical insight.
+
+documentation_datasheet_class: closed
+documentation_datasheet_link:
+documentation_datasheet_notes: No datasheet.
+
+access_licenses_class: closed
+access_licenses_link: https://closedexample.ai/terms
+access_licenses_notes: Proprietary terms of service; nothing openly licensed.
