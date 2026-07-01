@@ -29,14 +29,27 @@ MAX_PROMPT_LEN = 500     # bound the per-keystroke forward-pass cost
 CONTINUATION_LEN = 80    # sampled chars shown after the typed prompt
 
 
+REQUIRED_KEYS = ("chars", "C", "W1", "b1", "W2", "b2")
+
+
 def load_model(npz_path: str):
-    """Mirrors the .npz load path in colophon.cmd_generate()."""
+    """Mirrors the .npz load path in colophon.cmd_generate().
+
+    Raises KeyError if the archive is missing a required array and ValueError
+    if the embedding width is zero (which would make the K inference divide by
+    zero). main() degrades gracefully on both, like the missing-file case."""
     d = np.load(npz_path, allow_pickle=True)
+    missing = [k for k in REQUIRED_KEYS if k not in d.files]
+    if missing:
+        raise KeyError(f"{npz_path} is missing required array(s): {', '.join(missing)}")
     chars = list(d["chars"])
     stoi = {c: i for i, c in enumerate(chars)}
     itos = {i: c for c, i in stoi.items()}
     p = {k: d[k] for k in ("C", "W1", "b1", "W2", "b2")}
-    K = p["W1"].shape[0] // p["C"].shape[1]
+    embed_dim = p["C"].shape[1] if p["C"].ndim == 2 else 0
+    if embed_dim == 0:
+        raise ValueError(f"{npz_path} has a zero-width embedding (C shape {p['C'].shape})")
+    K = p["W1"].shape[0] // embed_dim
     return p, stoi, itos, K
 
 
@@ -236,7 +249,13 @@ def make_handler(model):
                 qs = urllib.parse.parse_qs(parsed.query)
                 prompt = qs.get("prompt", [""])[0][:MAX_PROMPT_LEN]
                 p, stoi, itos, K = model
-                self._send_json(analyze_prompt(p, stoi, itos, K, prompt))
+                try:
+                    result = analyze_prompt(p, stoi, itos, K, prompt)
+                except Exception as e:
+                    self._send_json(
+                        {"error": f"analysis failed: {e}"}, status=500)
+                    return
+                self._send_json(result)
             else:
                 self.send_error(404)
 
@@ -258,6 +277,9 @@ def main():
     except FileNotFoundError:
         print(f"warning: no trained model at {args.npz} -- entropy/off-map will "
               f"be unavailable until you run `python colophon.py demo` (or train)")
+    except (OSError, ValueError, KeyError) as e:
+        print(f"warning: could not load model at {args.npz} ({e}) -- entropy/"
+              f"off-map will be unavailable; the scorecard and page still work")
 
     httpd = http.server.HTTPServer((args.host, args.port), make_handler(model))
     print(f"Marginalia serving at http://{args.host}:{args.port}  (Ctrl+C to stop)")
