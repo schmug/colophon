@@ -70,6 +70,13 @@ def analyze_prompt(p, stoi, itos, K, prompt, n=CONTINUATION_LEN, seed=0):
     }
 
 
+def context_saliency(p, stoi, itos, K, prompt, pos, n=CONTINUATION_LEN, seed=0):
+    """Thin wrapper over colophon.context_saliency for the /api/saliency route.
+    Called only when the focused position changes -- never per keystroke."""
+    return colophon.context_saliency(p, stoi, itos, K, prompt, pos,
+                                     n_continuation=n, seed=seed)
+
+
 INDEX_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -256,6 +263,29 @@ def make_handler(model):
                 except Exception as e:
                     self._send_json(
                         {"error": f"analysis failed: {e}"}, status=500)
+                    return
+                self._send_json(result)
+            elif parsed.path == "/api/saliency":
+                if model is None:
+                    self._send_json(
+                        {"error": "no trained model found -- run `python colophon.py demo` first"},
+                        status=503)
+                    return
+                qs = urllib.parse.parse_qs(parsed.query)
+                prompt = qs.get("prompt", [""])[0][:MAX_PROMPT_LEN]
+                try:
+                    pos = int(qs.get("pos", [""])[0])
+                except (TypeError, ValueError):
+                    self._send_json({"error": "pos must be an integer"}, status=400)
+                    return
+                p, stoi, itos, K = model
+                try:
+                    result = context_saliency(p, stoi, itos, K, prompt, pos)
+                except IndexError as e:
+                    self._send_json({"error": str(e)}, status=400)
+                    return
+                except Exception as e:
+                    self._send_json({"error": f"analysis failed: {e}"}, status=500)
                     return
                 self._send_json(result)
             else:
