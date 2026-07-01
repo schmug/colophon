@@ -81,8 +81,14 @@ class ColophonJson(unittest.TestCase):
         text, paths = C.load_corpus(C.DEFAULT_SRC)
         chars, stoi, _ = C.build_vocab(text)
         dman = C.data_manifest(text, paths, chars)
-        # Train a tiny model so there's a real training section.
-        p, tman = C.train_model(text, stoi, chars, steps=5, log_every=5)
+        # Train a tiny model so there's a real training section. The tiny matrix
+        # sizes here bypass BLAS and hit NumPy's fallback matmul loop, which
+        # emits spurious divide/overflow FP-flag warnings on the transposed
+        # (non-contiguous) operands in the backward pass. The values are correct
+        # (the gradient check proves it); scope the suppression to this call so
+        # real numerical issues in production-sized training still surface.
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            p, tman = C.train_model(text, stoi, chars, steps=5, log_every=5)
 
         col = C.build_colophon(dman, tman)
         self.assertEqual(col["name"], "Colophon")
