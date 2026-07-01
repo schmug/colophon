@@ -65,10 +65,17 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 - `marginalia.py` — the live inspection UI (item #1 of the former "Open work"
   list). Stdlib-only `http.server` + a single vanilla-JS page; loads a trained
   `colophon.npz` and serves `prompt_confidence()` / `scorecard_section()` live.
-  No new dependencies. Not imported by `colophon.py`.
+  `confidence_readout()` adds a layperson layer — entropy reframed as a
+  `confidence% = (1 − entropy) × 100` headline plus a plain-English verdict —
+  computed server-side (not re-derived in JS) with the raw entropy still shown
+  underneath so the number stays auditable. The off-map flag overrides the
+  friendly percentage on OOD prompts, keeping the "confidence under-reads OOD"
+  lesson visible. No new dependencies. Not imported by `colophon.py`.
 - `test_marginalia.py` — stdlib `unittest`; checks `analyze_prompt()` is a
   faithful wrapper around `prompt_confidence()` / `generate()`, including the
-  off-map signal on an out-of-distribution prompt.
+  off-map signal on an out-of-distribution prompt, and that
+  `confidence_readout()` inverts entropy, overrides on off-map, and gives an
+  empty prompt no confidence number.
 - `README.md` — full concept/problem/solution + honest limits + counter-position +
   OSAI attribution.
 
@@ -114,8 +121,10 @@ filed as #7 and shipped in #9.
 Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
 and the entropy/off-map signals.
 Done: **Marginalia** — the live inspection UI (`marginalia.py`, stdlib-only
-`http.server` + a single-page frontend) shows live entropy, the off-map/
-unknown-char flag, and the OSAI scorecard against a trained `colophon.npz`.
+`http.server` + a single-page frontend) shows a layperson confidence readout
+(entropy reframed as a `confidence%` headline + plain-English verdict, raw
+entropy still shown for audit), the off-map/unknown-char flag, a sampled
+continuation, and the OSAI scorecard against a trained `colophon.npz`.
 
 ## The print-shop family (future naming)
 
