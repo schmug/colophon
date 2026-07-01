@@ -124,7 +124,11 @@ def init_params(V, E, K, H, seed=0):
 
 
 def forward(p, Xb):
-    """Xb: (B, K) int context. Returns logits (B, V) and a cache for backprop."""
+    """Xb: (B, K) int context. Returns logits (B, V) and a cache for backprop
+    (cache is None on the transformer path, which trains via torch autograd
+    instead of the manual backprop below)."""
+    if p.get("_arch") == "transformer":
+        return forward_transformer(p, Xb)
     B, K = Xb.shape
     emb = p["C"][Xb]                 # (B, K, E)
     x = emb.reshape(B, -1)           # (B, K*E)
@@ -175,7 +179,91 @@ class Adam:
 
 
 def n_params(p):
+    if p.get("_arch") == "transformer":
+        return int(sum(v.numel() for v in p["module"].parameters()))
     return int(sum(v.size for v in p.values()))
+
+
+# --------------------------------------------------------------------------- #
+# Optional arch: single-block causal transformer, torch, lazily imported.
+# The NumPy MLP above stays the default and the auditable reference; this path
+# changes capability, not the argument (CLAUDE.md). It mirrors the MLP's exact
+# interface -- (B, K) int contexts in, (B, V) next-char logits out -- so
+# generate() and prompt_confidence() work unmodified against either arch, and
+# entropy / the off-map signal stay comparable across both.
+# --------------------------------------------------------------------------- #
+
+def _require_torch():
+    try:
+        import torch
+    except ImportError as e:
+        raise SystemExit(
+            "--arch transformer requires PyTorch, which is not installed by "
+            "default (the NumPy path stays dependency-free). Install with: "
+            "pip install torch"
+        ) from e
+    return torch
+
+
+def _build_transformer_module(V, K, E, n_head, seed):
+    torch = _require_torch()
+    import torch.nn as nn
+
+    class _CausalBlock(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.tok_emb = nn.Embedding(V, E)
+            self.pos_emb = nn.Parameter(torch.zeros(1, K, E))
+            self.attn = nn.MultiheadAttention(E, n_head, batch_first=True)
+            self.ln1 = nn.LayerNorm(E)
+            self.ff = nn.Sequential(nn.Linear(E, 4 * E), nn.GELU(), nn.Linear(4 * E, E))
+            self.ln2 = nn.LayerNorm(E)
+            self.head = nn.Linear(E, V)
+            self.register_buffer("mask", torch.triu(torch.ones(K, K), diagonal=1).bool())
+
+        def forward(self, idx):
+            x = self.tok_emb(idx) + self.pos_emb
+            a, _ = self.attn(x, x, x, attn_mask=self.mask, need_weights=False)
+            x = self.ln1(x + a)
+            x = self.ln2(x + self.ff(x))
+            return self.head(x[:, -1, :])  # last context position -> next-char logits
+
+    torch.manual_seed(seed)
+    return _CausalBlock()
+
+
+def init_params_transformer(V, K, E=32, n_head=4, seed=0):
+    module = _build_transformer_module(V, K, E, n_head, seed)
+    return {"_arch": "transformer", "module": module, "V": V, "K": K, "E": E, "n_head": n_head}
+
+
+def forward_transformer(p, Xb):
+    torch = _require_torch()
+    idx = torch.from_numpy(np.asarray(Xb, dtype=np.int64))
+    with torch.no_grad():
+        logits = p["module"](idx)
+    return logits.numpy(), None
+
+
+def train_transformer(p, seq, N, K, steps, batch, lr, seed, log_every):
+    torch = _require_torch()
+    module = p["module"]
+    opt = torch.optim.Adam(module.parameters(), lr=lr)
+    rng = np.random.default_rng(seed + 1)
+    t0 = time.time()
+    hist = []
+    for s in range(1, steps + 1):
+        Xb, Yb = get_batch(seq, N, K, batch, rng)
+        logits = module(torch.from_numpy(Xb))
+        loss = torch.nn.functional.cross_entropy(logits, torch.from_numpy(Yb))
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        if s % log_every == 0 or s == 1:
+            hist.append((s, float(loss.item())))
+            print(f"  step {s:>6}/{steps}   loss {loss.item():.4f}")
+    module.eval()
+    return hist, round(time.time() - t0, 2)
 
 
 # --------------------------------------------------------------------------- #
@@ -191,11 +279,29 @@ def get_batch(seq, N, K, B, rng):
 
 
 def train_model(text, stoi, chars, K=12, E=24, H=128, steps=6000, batch=64,
-                lr=3e-3, seed=0, log_every=1000):
+                lr=3e-3, seed=0, log_every=1000, arch="mlp"):
     V = len(chars)
     idx = encode(text, stoi)
     seq = np.concatenate([np.zeros(K, dtype=np.int64), idx])
     N = len(idx)
+
+    if arch == "transformer":
+        p = init_params_transformer(V, K, seed=seed)
+        hist, wall = train_transformer(p, seq, N, K, steps, batch, lr, seed, log_every)
+        manifest = {
+            "arch": "transformer",
+            "architecture": f"causal single-block transformer (torch), "
+                             f"K={K} E={p['E']} heads={p['n_head']}",
+            "backend": "PyTorch, CPU, autograd",
+            "context_length_K": K, "embed_dim_E": p["E"], "hidden_H": 4 * p["E"],
+            "attention_heads": p["n_head"],
+            "vocab_size_V": V, "parameters": n_params(p),
+            "steps": steps, "batch": batch, "lr": lr, "seed": seed,
+            "final_loss": hist[-1][1] if hist else None,
+            "wall_clock_seconds": wall,
+        }
+        return p, manifest
+
     p = init_params(V, E, K, H, seed=seed)
     opt = Adam(p, lr=lr)
     rng = np.random.default_rng(seed + 1)
@@ -209,6 +315,7 @@ def train_model(text, stoi, chars, K=12, E=24, H=128, steps=6000, batch=64,
             hist.append((s, float(loss)))
             print(f"  step {s:>6}/{steps}   loss {loss:.4f}")
     manifest = {
+        "arch": "mlp",
         "architecture": "char-level MLP LM (embedding -> tanh hidden -> logits)",
         "backend": "pure NumPy, CPU, manual backprop",
         "context_length_K": K, "embed_dim_E": E, "hidden_H": H,
@@ -348,6 +455,47 @@ def write_colophon(data, training=None):
 
 
 # --------------------------------------------------------------------------- #
+# Weight persistence. MLP save/load is byte-identical to before (no new keys
+# in the .npz); the transformer path stores its torch state_dict as plain
+# numpy arrays plus a tiny "arch"/"cfg" tag so `generate` can rebuild it
+# without the CLI having to pass --arch again.
+# --------------------------------------------------------------------------- #
+
+def save_weights(p, chars):
+    path = os.path.join(HERE, WEIGHTS_FILE)
+    if p.get("_arch") == "transformer":
+        state = {f"t__{k}": v.detach().cpu().numpy()
+                 for k, v in p["module"].state_dict().items()}
+        cfg = json.dumps({"V": p["V"], "K": p["K"], "E": p["E"], "n_head": p["n_head"]})
+        np.savez(path, chars=np.array(chars, dtype=object),
+                 arch=np.array("transformer"), cfg=np.array(cfg), **state)
+    else:
+        np.savez(path, **p, chars=np.array(chars, dtype=object))
+
+
+def load_weights():
+    d = np.load(os.path.join(HERE, WEIGHTS_FILE), allow_pickle=True)
+    chars = list(d["chars"])
+    arch = str(d["arch"]) if "arch" in d.files else "mlp"
+    if arch == "transformer":
+        cfg = json.loads(str(d["cfg"]))
+        p = init_params_transformer(cfg["V"], cfg["K"], E=cfg["E"], n_head=cfg["n_head"])
+        torch = _require_torch()
+        state = {k[3:]: torch.from_numpy(d[k]) for k in d.files if k.startswith("t__")}
+        p["module"].load_state_dict(state)
+        p["module"].eval()
+        return p, chars
+    p = {k: d[k] for k in ("C", "W1", "b1", "W2", "b2")}
+    return p, chars
+
+
+def _infer_K(p):
+    if p.get("_arch") == "transformer":
+        return p["K"]
+    return p["W1"].shape[0] // p["C"].shape[1]
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
@@ -380,14 +528,13 @@ def _train_from_args(args):
     text, paths = load_corpus(args.src)
     chars, stoi, itos = build_vocab(text)
     print(f"corpus: {len(text)} chars, {len(paths)} files, vocab {len(chars)}")
-    p, man = train_model(text, stoi, chars, steps=args.steps, seed=args.seed)
+    p, man = train_model(text, stoi, chars, steps=args.steps, seed=args.seed, arch=args.arch)
     return text, paths, chars, stoi, itos, p, man
 
 
 def cmd_train(args):
     text, paths, chars, stoi, itos, p, man = _train_from_args(args)
-    np.savez(os.path.join(HERE, WEIGHTS_FILE),
-             **p, chars=np.array(chars, dtype=object))
+    save_weights(p, chars)
     dman = data_manifest(text, paths, chars)
     write_colophon(dman, training=man)
     print("\ntraining section:\n" + json.dumps(man, indent=2))
@@ -423,8 +570,7 @@ def cmd_demo(args):
 
     print_scorecard()
 
-    np.savez(os.path.join(HERE, WEIGHTS_FILE),
-             **p, chars=np.array(chars, dtype=object))
+    save_weights(p, chars)
     dman = data_manifest(text, paths, chars)
     write_colophon(dman, training=man)
     print(f"\nsaved {WEIGHTS_FILE} + {COLOPHON_FILE} "
@@ -432,11 +578,10 @@ def cmd_demo(args):
 
 
 def cmd_generate(args):
-    d = np.load(os.path.join(HERE, WEIGHTS_FILE), allow_pickle=True)
-    chars = list(d["chars"]); stoi = {c: i for i, c in enumerate(chars)}
+    p, chars = load_weights()
+    stoi = {c: i for i, c in enumerate(chars)}
     itos = {i: c for c, i in stoi.items()}
-    p = {k: d[k] for k in ("C", "W1", "b1", "W2", "b2")}
-    K = p["W1"].shape[0] // p["C"].shape[1]
+    K = _infer_K(p)
     print(generate(p, stoi, itos, K, prompt=args.prompt, n=args.n, seed=args.seed))
 
 
@@ -447,6 +592,11 @@ def main():
                     help="directory of OSAI-index .yaml files (default: bundled sample)")
     ap.add_argument("--steps", type=int, default=6000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--arch", choices=["mlp", "transformer"], default="mlp",
+                    help="model architecture for prepare/train/demo: 'mlp' (default, "
+                         "dependency-free NumPy) or 'transformer' (optional, requires "
+                         "`pip install torch`). generate reads the arch from the saved "
+                         "weights, so this flag doesn't need repeating there.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("train")

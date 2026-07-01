@@ -78,6 +78,24 @@ git clone https://codeberg.org/AI-Technology-Assessment/main-database osai
 python colophon.py --src ./osai demo
 ```
 
+### Optional: transformer architecture
+
+The NumPy MLP above is the default and the auditable reference. For a
+higher-capacity run on the full index, install PyTorch and pass
+`--arch transformer` to `prepare`/`train`/`demo`:
+
+```bash
+pip install torch
+python colophon.py --arch transformer --src ./osai --steps 8000 train
+python colophon.py generate --prompt "availability_weights_"   # arch is read back from colophon.npz
+```
+
+Swapping architectures changes capability, not the argument: `generate` and the
+entropy/off-map confidence signals work identically on either arch, and
+`colophon.json`'s training section still records exactly what was trained
+(`"arch": "transformer"` or `"mlp"`). Omitting `--arch` keeps today's exact
+dependency-free behavior — torch is never imported unless you ask for it.
+
 Outputs (gitignored, regenerable): `colophon.npz` (weights) and `colophon.json`
 — the model's own colophon: data section (datasheet), training section (model
 card), and its openness scorecard, in one self-describing file.

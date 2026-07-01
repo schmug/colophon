@@ -88,17 +88,17 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 
 ## Open work (rough priority)
 
-1. **Transformer option** — a `--arch transformer` path (torch/MLX) for the full
-   index; keep the NumPy MLP as the auditable default.
-2. **Run on the full OSAI index** and capture a cleaner in/out-of-dist spread.
-3. Optional: `pip install -e .` with a `colophon` console entrypoint.
+1. **Run on the full OSAI index** and capture a cleaner in/out-of-dist spread.
+2. Optional: `pip install -e .` with a `colophon` console entrypoint.
 
 Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
 and the entropy/off-map signals (was item #4).
 Done: **Marginalia** — the live inspection UI (`marginalia.py`, stdlib-only
 `http.server` + a single-page frontend) shows live entropy, the off-map/
-unknown-char flag, and the OSAI scorecard against a trained `colophon.npz`
-(was item #1).
+unknown-char flag, and the OSAI scorecard against a trained `colophon.npz`.
+Done: **transformer option** — `--arch transformer` (torch, lazily imported;
+`prepare`/`train`/`demo` accept it, `generate` reads the arch back from
+`colophon.npz`). The NumPy MLP stays the default and the auditable reference.
 
 ## The print-shop family (future naming)
 
