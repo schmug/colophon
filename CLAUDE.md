@@ -54,6 +54,13 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 - `test_colophon.py` — stdlib `unittest` + NumPy only. Finite-difference gradient
   check on the manual backprop, the off-map/unknown-char signal, and the unified
   `colophon.json` contract. Run: `python -m unittest test_colophon`.
+- `marginalia.py` — the live inspection UI (item #1 of the former "Open work"
+  list). Stdlib-only `http.server` + a single vanilla-JS page; loads a trained
+  `colophon.npz` and serves `prompt_confidence()` / `scorecard_section()` live.
+  No new dependencies. Not imported by `colophon.py`.
+- `test_marginalia.py` — stdlib `unittest`; checks `analyze_prompt()` is a
+  faithful wrapper around `prompt_confidence()` / `generate()`, including the
+  off-map signal on an out-of-distribution prompt.
 - `README.md` — full concept/problem/solution + honest limits + counter-position +
   OSAI attribution.
 
@@ -81,18 +88,17 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 
 ## Open work (rough priority)
 
-1. **Live UI layer** — a small local page: type a prompt, watch entropy, the
-   off-map/unknown-char flag, and the scorecard update live. Working name below:
-   **Marginalia**.
-2. **Run on the full OSAI index** and capture a cleaner in/out-of-dist spread.
-3. Optional: `pip install -e .` with a `colophon` console entrypoint.
+1. **Run on the full OSAI index** and capture a cleaner in/out-of-dist spread.
+2. Optional: `pip install -e .` with a `colophon` console entrypoint.
 
 Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
 and the entropy/off-map signals (was item #4).
+Done: **Marginalia** — the live inspection UI (`marginalia.py`, stdlib-only
+`http.server` + a single-page frontend) shows live entropy, the off-map/
+unknown-char flag, and the OSAI scorecard against a trained `colophon.npz`.
 Done: **transformer option** — `--arch transformer` (torch, lazily imported;
 `prepare`/`train`/`demo` accept it, `generate` reads the arch back from
-`colophon.npz`). The NumPy MLP stays the default and the auditable reference
-(was item #2).
+`colophon.npz`). The NumPy MLP stays the default and the auditable reference.
 
 ## The print-shop family (future naming)
 
