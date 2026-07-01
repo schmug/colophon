@@ -33,28 +33,31 @@ class AnalyzePrompt(unittest.TestCase):
         self.K = 4
         self.native = text[:50]
 
-    def test_matches_prompt_confidence(self):
-        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, self.native, n=10)
-        ent, unknown = C.prompt_confidence(self.p, self.stoi, self.K, self.native)
-        self.assertAlmostEqual(result["entropy"], ent, places=9)
-        self.assertEqual(result["unknown_chars"], unknown)
+    def test_records_match_inspect_prompt(self):
+        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K,
+                                  self.native, n=10)
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K,
+                                self.native, n_continuation=10)
+        self.assertEqual(result["records"], recs)
+        self.assertEqual(result["prompt"], self.native)
         self.assertFalse(result["off_map"])
+        self.assertEqual(result["unknown_chars"], [])
+
+    def test_prompt_entropy_still_matches_prompt_confidence(self):
+        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K,
+                                  self.native, n=0)
+        mean_ent = sum(r["entropy"] for r in result["records"]) / len(result["records"])
+        ent, _ = C.prompt_confidence(self.p, self.stoi, self.K, self.native)
+        self.assertAlmostEqual(mean_ent, ent, places=9)
 
     def test_off_map_true_for_unseen_chars(self):
-        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, "日本語", n=10)
+        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, "日本語", n=5)
         self.assertTrue(result["off_map"])
         self.assertEqual(result["unknown_chars"], sorted(set("日本語")))
 
-    def test_continuation_is_generated_suffix(self):
-        prompt = self.native[:5]
-        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, prompt, n=15, seed=1)
-        full = C.generate(self.p, self.stoi, self.itos, self.K, prompt=prompt, n=15, seed=1)
-        self.assertEqual(result["continuation"], full[len(prompt):])
-        self.assertEqual(len(result["continuation"]), 15)
-
-    def test_empty_prompt_does_not_crash(self):
+    def test_empty_prompt_yields_no_records(self):
         result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, "", n=5)
-        self.assertEqual(result["entropy"], 0.0)
+        self.assertEqual(result["records"], [])
         self.assertEqual(result["unknown_chars"], [])
         self.assertFalse(result["off_map"])
 
@@ -132,9 +135,11 @@ class HandlerRouting(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
         data = json.loads(body)
-        self.assertIn("entropy", data)
-        self.assertIn("off_map", data)
         self.assertEqual(data["prompt"], "weights")
+        self.assertIn("records", data)
+        self.assertIn("off_map", data)
+        self.assertGreaterEqual(len(data["records"]), len("weights"))
+        self.assertIn("entropy", data["records"][0])
 
     def test_unknown_route_404(self):
         status, _, _ = self.server.get("/nope")

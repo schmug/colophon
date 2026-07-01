@@ -54,17 +54,19 @@ def load_model(npz_path: str):
 
 
 def analyze_prompt(p, stoi, itos, K, prompt, n=CONTINUATION_LEN, seed=0):
-    """The one function the HTTP layer calls: entropy + off-map signal from
-    prompt_confidence(), plus a sampled continuation from generate(). Both are
-    colophon.py's own functions, called as-is."""
-    entropy, unknown = colophon.prompt_confidence(p, stoi, K, prompt)
-    full = colophon.generate(p, stoi, itos, K, prompt=prompt, n=n, seed=seed)
+    """The per-keystroke call: maximal per-position white-box records from
+    colophon.inspect_prompt(), plus the categorical off-map signal. Both come
+    from colophon.py's own functions -- nothing is re-derived here. An empty
+    prompt yields no records (we do not dream a continuation from nothing)."""
+    n_eff = n if prompt else 0
+    records = colophon.inspect_prompt(p, stoi, itos, K, prompt,
+                                      n_continuation=n_eff, seed=seed)
+    unknown = sorted({ch for ch in prompt if ch not in stoi})
     return {
         "prompt": prompt,
-        "entropy": entropy,
+        "records": records,
         "unknown_chars": unknown,
         "off_map": bool(unknown),
-        "continuation": full[len(prompt):],
     }
 
 
