@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
-openlm.py -- a fully-open, from-scratch character language model that demonstrates
-             why model openness matters, trained on the European Open Source AI
-             Index (the same data that *defines* openness).
+colophon.py -- a fully-open, from-scratch character language model that ships its
+               own colophon, trained on the European Open Source AI Index (the
+               same data that *defines* openness).
 
-The point is not capability. A ~50K-parameter char model is not a chatbot. The
+A colophon is the note at the end of a book stating how it was made -- press,
+typeface, paper, print run. This model is named for that and embodies it: it
+emits a `colophon.json` documenting its own data, training, and openness grades.
+
+The point is not capability. A ~45K-parameter char model is not a chatbot. The
 point is that EVERY property people usually have to estimate about a model is,
 here, ground truth you can verify:
 
@@ -18,16 +22,16 @@ No framework. The model, its gradients, and its optimizer are a few hundred line
 of NumPy you can audit end to end -- which is itself the argument.
 
 Subcommands:
-  prepare  Build the corpus + a datasheet-style manifest and print the scope.
-  train    Train from scratch; save weights + a training manifest.
+  prepare  Build the corpus + write colophon.json (data section) and print scope.
+  train    Train from scratch; save colophon.npz weights + colophon.json.
   demo     Train (fast), then show generation, in- vs out-of-distribution
            confidence, and the OSAI 14-dimension openness scorecard.
 
 Usage:
-  python openlm.py demo                       # runs end-to-end on bundled data
-  python openlm.py demo --src /path/to/osai   # use a real clone of the index
-  python openlm.py train --steps 8000 --src /path/to/osai
-  python openlm.py generate --prompt "availability_weights"
+  python colophon.py demo                       # runs end-to-end on bundled data
+  python colophon.py demo --src /path/to/osai   # use a real clone of the index
+  python colophon.py train --steps 8000 --src /path/to/osai
+  python colophon.py generate --prompt "availability_weights"
 
 Data attribution: the bundled sample mimics the schema of the European Open
 Source AI Index (CC-BY 4.0, doi:10.5281/zenodo.15386042). When using the real
@@ -41,6 +45,11 @@ import numpy as np
 PAD = "\x00"  # boundary/padding token, never present in normal text
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_SRC = os.path.join(HERE, "sample_data")
+
+NAME = "Colophon"
+TAGLINE = "A model that ships its own colophon."
+WEIGHTS_FILE = "colophon.npz"    # open weights
+COLOPHON_FILE = "colophon.json"  # the model's self-description (datasheet + card + scorecard)
 
 
 # --------------------------------------------------------------------------- #
@@ -270,14 +279,34 @@ SCORECARD = [
     ("Documentation: hardware",      "G", "P", "'NumPy on one CPU core' -- fully stated"),
     ("Documentation: preprint",      "R", "R", "none -- this is a demo, not a paper"),
     ("Documentation: paper",         "R", "R", "none"),
-    ("Documentation: model card",    "G", "P", "the training manifest is the card"),
-    ("Documentation: datasheet",     "G", "R", "the data manifest is the datasheet"),
+    ("Documentation: model card",    "G", "P", "the training section is the card"),
+    ("Documentation: datasheet",     "G", "R", "the data section is the datasheet"),
     ("Access: licenses",             "G", "R", "code open; data CC-BY"),
 ]
 # The index defines 14 dimensions; the two not scored here are additional Access
 # methods beyond licensing, which do not apply to a local artifact.
 
 _GLYPH = {"G": "[open]   ", "P": "[partial]", "R": "[closed] "}
+_LABEL = {"G": "open", "P": "partial", "R": "closed"}
+
+
+def scorecard_section():
+    """The openness scorecard as structured data, for colophon.json. Same source
+    of truth as print_scorecard() -- glyphs expanded to readable labels."""
+    ours_open = sum(1 for r in SCORECARD if r[1] == "G")
+    closed_open = sum(1 for r in SCORECARD if r[2] == "G")
+    return {
+        "framework": "European Open Source AI Index (14 dimensions)",
+        "colophon_open": ours_open,
+        "typical_closed_open": closed_open,
+        "scored": len(SCORECARD),
+        "not_applicable": 14 - len(SCORECARD),
+        "dimensions": [
+            {"dimension": dim, "colophon": _LABEL[ours],
+             "typical_closed": _LABEL[closed], "note": note}
+            for dim, ours, closed, note in SCORECARD
+        ],
+    }
 
 
 def print_scorecard():
@@ -291,6 +320,31 @@ def print_scorecard():
     print(f"  fully-open dimensions:   this artifact {ours_open}/12   "
           f"typical closed model {closed_open}/12")
     print("  (The two remaining OSAI dimensions are extra access methods, N/A here.)")
+
+
+# --------------------------------------------------------------------------- #
+# The colophon itself: one self-describing file (datasheet + model card +
+# scorecard). A book's colophon in JSON -- the model documents how it was made.
+# --------------------------------------------------------------------------- #
+
+def build_colophon(data, training=None):
+    """Assemble colophon.json. `training` is None before a model is trained
+    (the `prepare` path), in which case the training section is left null."""
+    return {
+        "name": NAME,
+        "tagline": TAGLINE,
+        "generated_by": os.path.basename(__file__),
+        "data": data,
+        "training": training,
+        "scorecard": scorecard_section(),
+    }
+
+
+def write_colophon(data, training=None):
+    col = build_colophon(data, training)
+    with open(os.path.join(HERE, COLOPHON_FILE), "w") as f:
+        json.dump(col, f, indent=2, ensure_ascii=False)
+    return col
 
 
 # --------------------------------------------------------------------------- #
@@ -314,12 +368,12 @@ def cmd_prepare(args):
     text, paths = load_corpus(args.src)
     chars, stoi, itos = build_vocab(text)
     man = data_manifest(text, paths, chars)
-    with open(os.path.join(HERE, "data_manifest.json"), "w") as f:
-        json.dump(man, f, indent=2, ensure_ascii=False)
+    write_colophon(man, training=None)
     print(json.dumps({k: man[k] for k in
           ("num_files", "num_characters", "vocab_size", "sha256",
            "openness_class_token_counts")}, indent=2))
     print("\nknowledge scope:\n  " + man["knowledge_scope"])
+    print(f"\nwrote {COLOPHON_FILE} (data section; train to fill the rest)")
 
 
 def _train_from_args(args):
@@ -332,12 +386,12 @@ def _train_from_args(args):
 
 def cmd_train(args):
     text, paths, chars, stoi, itos, p, man = _train_from_args(args)
-    np.savez(os.path.join(HERE, "model.npz"),
+    np.savez(os.path.join(HERE, WEIGHTS_FILE),
              **p, chars=np.array(chars, dtype=object))
-    with open(os.path.join(HERE, "train_manifest.json"), "w") as f:
-        json.dump(man, f, indent=2)
-    print("\ntrain manifest:\n" + json.dumps(man, indent=2))
-    print("saved model.npz + train_manifest.json")
+    dman = data_manifest(text, paths, chars)
+    write_colophon(dman, training=man)
+    print("\ntraining section:\n" + json.dumps(man, indent=2))
+    print(f"saved {WEIGHTS_FILE} + {COLOPHON_FILE}")
 
 
 def cmd_demo(args):
@@ -369,17 +423,16 @@ def cmd_demo(args):
 
     print_scorecard()
 
-    np.savez(os.path.join(HERE, "model.npz"),
+    np.savez(os.path.join(HERE, WEIGHTS_FILE),
              **p, chars=np.array(chars, dtype=object))
     dman = data_manifest(text, paths, chars)
-    for name, obj in (("data_manifest.json", dman), ("train_manifest.json", man)):
-        with open(os.path.join(HERE, name), "w") as f:
-            json.dump(obj, f, indent=2, ensure_ascii=False)
-    print("\nsaved model.npz, data_manifest.json, train_manifest.json")
+    write_colophon(dman, training=man)
+    print(f"\nsaved {WEIGHTS_FILE} + {COLOPHON_FILE} "
+          "(the model's own colophon: data + training + scorecard)")
 
 
 def cmd_generate(args):
-    d = np.load(os.path.join(HERE, "model.npz"), allow_pickle=True)
+    d = np.load(os.path.join(HERE, WEIGHTS_FILE), allow_pickle=True)
     chars = list(d["chars"]); stoi = {c: i for i, c in enumerate(chars)}
     itos = {i: c for c, i in stoi.items()}
     p = {k: d[k] for k in ("C", "W1", "b1", "W2", "b2")}
@@ -388,7 +441,8 @@ def cmd_generate(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Fully-open from-scratch char LM.")
+    ap = argparse.ArgumentParser(
+        description="Colophon -- a fully-open from-scratch char LM that ships its own colophon.")
     ap.add_argument("--src", default=DEFAULT_SRC,
                     help="directory of OSAI-index .yaml files (default: bundled sample)")
     ap.add_argument("--steps", type=int, default=6000)
