@@ -360,6 +360,19 @@ def generate(p, stoi, itos, K, prompt="", n=240, temp=0.8, seed=0):
     return prompt + "".join(out)
 
 
+# --------------------------------------------------------------------------- #
+# White-box inspection helpers (used by marginalia.py; see inspect_prompt).
+# --------------------------------------------------------------------------- #
+
+_DISPLAY = {"\x00": "∅", " ": "␣", "\n": "⏎", "\t": "⇥"}
+
+
+def _display_char(ch):
+    """Human-readable form of a single character for the inspection UI.
+    PAD/whitespace get glyphs; everything else is shown as itself."""
+    return _DISPLAY.get(ch, ch)
+
+
 def prompt_confidence(p, stoi, K, prompt):
     """Teacher-force through `prompt`, returning mean NORMALIZED next-char
     entropy (0 = certain, 1 = uniform) and any characters the model has never

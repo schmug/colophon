@@ -80,6 +80,19 @@ class OffMapSignal(unittest.TestCase):
         self.assertEqual(unknown, [], "native text should have no off-map chars")
 
 
+class DisplayChar(unittest.TestCase):
+    """Readable glyphs for the inspection UI; every other character is itself."""
+    def test_control_and_whitespace_glyphs(self):
+        self.assertEqual(C._display_char("\x00"), "∅")
+        self.assertEqual(C._display_char(" "), "␣")
+        self.assertEqual(C._display_char("\n"), "⏎")
+        self.assertEqual(C._display_char("\t"), "⇥")
+
+    def test_ordinary_char_passes_through(self):
+        self.assertEqual(C._display_char("a"), "a")
+        self.assertEqual(C._display_char(":"), ":")
+
+
 class ColophonJson(unittest.TestCase):
     """The self-describing colophon.json contract the README promises: one file
     with data, training, and scorecard sections."""
