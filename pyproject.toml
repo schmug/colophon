@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "colophon"
+version = "0.1.0"
+description = "A ~45K-parameter char LM in pure NumPy that ships its own colophon."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "schmug" }]
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.24"]
+
+[project.urls]
+Homepage = "https://github.com/schmug/colophon"
+
+[project.scripts]
+colophon = "colophon:main"
+
+[tool.setuptools]
+py-modules = ["colophon"]

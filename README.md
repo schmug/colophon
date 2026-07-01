@@ -57,8 +57,17 @@ python colophon.py --steps 8000 train     # train and save colophon.npz + coloph
 python colophon.py generate --prompt "availability_weights_"
 ```
 
+Or install it as a package (`pip install -e .`) to get a `colophon` console
+command that maps to the same CLI:
+
+```bash
+pip install -e .
+colophon demo
+colophon generate --prompt "availability_weights_"
+```
+
 Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand:
-`python colophon.py --src ./osai --steps 8000 demo`.
+`python colophon.py --src ./osai --steps 8000 demo` (or `colophon --src ./osai --steps 8000 demo`).
 
 Bundled `sample_data/` (three OSAI-style entries) lets it run with zero external
 data. For the real thing, clone the index and point at it:
