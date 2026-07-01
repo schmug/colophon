@@ -3,8 +3,9 @@
 
 Marginalia's job is to expose colophon.py's white-box signals over HTTP without
 re-deriving them. These tests check that analyze_prompt() is a faithful, thin
-wrapper around prompt_confidence() and generate(), and that the off-map signal
-it forwards behaves the same way the demo's headline result does.
+wrapper around inspect_prompt(), and that the off-map signal it forwards
+behaves the same way the demo's headline result does. The saliency wrapper is
+checked the same way against colophon.context_saliency().
 
 Run: python -m unittest test_marginalia
 """
@@ -221,6 +222,29 @@ class HandlerDegraded(unittest.TestCase):
             self.assertIn("boom", json.loads(body)["error"])
         finally:
             server.close()
+
+
+class IndexHtmlContract(unittest.TestCase):
+    """The single-page inspector must ship all five regions + the black-box
+    framing banner, and must not smuggle in an external dependency."""
+
+    def test_regions_present(self):
+        html = M.INDEX_HTML
+        for marker in ('id="heatmap"', 'id="rail"', 'id="saliency"',
+                       'id="inspector"', 'id="aggregates"', 'id="scorecard"',
+                       'id="bb-banner"'):
+            self.assertIn(marker, html)
+
+    def test_calls_both_apis(self):
+        html = M.INDEX_HTML
+        self.assertIn("/api/analyze", html)
+        self.assertIn("/api/saliency", html)
+
+    def test_no_external_dependencies(self):
+        html = M.INDEX_HTML
+        self.assertNotIn("http://", html.replace("http://127.0.0.1", ""))
+        self.assertNotIn("https://", html)
+        self.assertNotIn("cdn", html.lower())
 
 
 class LoadModel(unittest.TestCase):
