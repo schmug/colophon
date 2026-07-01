@@ -89,7 +89,6 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 ## Open work (rough priority)
 
 1. **Run on the full OSAI index** and capture a cleaner in/out-of-dist spread.
-2. Optional: `pip install -e .` with a `colophon` console entrypoint.
 
 Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
 and the entropy/off-map signals (was item #4).
@@ -99,6 +98,8 @@ unknown-char flag, and the OSAI scorecard against a trained `colophon.npz`.
 Done: **transformer option** — `--arch transformer` (torch, lazily imported;
 `prepare`/`train`/`demo` accept it, `generate` reads the arch back from
 `colophon.npz`). The NumPy MLP stays the default and the auditable reference.
+Done: **pip install -e .** — packaging with a `colophon` console entrypoint,
+filed as #7 and shipped in #9.
 
 ## The print-shop family (future naming)
 
