@@ -1,7 +1,9 @@
-# Generated artifacts (regenerate with: python openlm.py demo)
-model.npz
-data_manifest.json
-train_manifest.json
+# Generated artifacts (regenerate with: python colophon.py demo)
+colophon.npz
+colophon.json
+
+# Transfer/scratch archives (never committed)
+*.zip
 
 # Locally cloned OSAI index — referenced, never vendored (CC-BY)
 osai/
