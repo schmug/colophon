@@ -193,6 +193,76 @@ class TransformerArch(unittest.TestCase):
         self.assertTrue(out.startswith("availability_"))
 
 
+class InspectPrompt(unittest.TestCase):
+    """Per-position white-box records: entropy must equal prompt_confidence's,
+    top_k must be a real sorted distribution, truth-rank must be correct, and
+    off-map chars must carry null truth fields."""
+
+    def setUp(self):
+        self.text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(self.text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_record_count_and_shape(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K,
+                                "weights", topk=5, n_continuation=6, seed=0)
+        self.assertEqual(len(recs), len("weights") + 6)
+        r = recs[0]
+        for key in ("char", "display", "is_continuation", "entropy", "top_k",
+                    "context_window", "truth_rank", "truth_prob", "off_map"):
+            self.assertIn(key, r)
+        self.assertEqual(len(r["context_window"]), self.K)
+        self.assertTrue(all(recs[i]["is_continuation"] is False
+                            for i in range(len("weights"))))
+        self.assertTrue(recs[-1]["is_continuation"] is True)
+
+    def test_prompt_entropy_mean_matches_prompt_confidence(self):
+        text = self.text[:30]
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, text,
+                                n_continuation=0, seed=0)
+        mean_ent = sum(r["entropy"] for r in recs) / len(recs)
+        ent, _ = C.prompt_confidence(self.p, self.stoi, self.K, text)
+        self.assertAlmostEqual(mean_ent, ent, places=9)
+
+    def test_top_k_sorted_and_normalized(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                                topk=5, n_continuation=0)
+        top = recs[0]["top_k"]
+        self.assertLessEqual(len(top), 5)
+        probs = [pr for _, pr in top]
+        self.assertEqual(probs, sorted(probs, reverse=True))
+        self.assertTrue(all(0.0 < pr <= 1.0 for pr in probs))
+
+    def test_truth_rank_matches_hand_computed(self):
+        # Rank the actual next char in position 0's full distribution by hand.
+        text = "class"
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, text,
+                                n_continuation=0)
+        ctx = np.array([[0, 0, 0, 0]])
+        logits, _ = C.forward(self.p, ctx)
+        l = logits[0] - logits[0].max()
+        pr = np.exp(l); pr /= pr.sum()
+        cid = self.stoi[text[0]]
+        expected_rank = int((pr > pr[cid]).sum()) + 1
+        self.assertEqual(recs[0]["truth_rank"], expected_rank)
+        self.assertAlmostEqual(recs[0]["truth_prob"], float(pr[cid]), places=9)
+
+    def test_off_map_char_has_null_truth(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "日x",
+                                n_continuation=0)
+        self.assertTrue(recs[0]["off_map"])
+        self.assertIsNone(recs[0]["truth_rank"])
+        self.assertIsNone(recs[0]["truth_prob"])
+        self.assertFalse(recs[1]["off_map"])  # "x" is ASCII, in vocab
+
+    def test_pad_slots_shown_as_glyph(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "ab",
+                                n_continuation=0)
+        # Position 0 sees an all-pad context.
+        self.assertEqual(recs[0]["context_window"], ["∅", "∅", "∅", "∅"])
+
+
 class AccelerateMatmulWarnings(unittest.TestCase):
     """Apple's Accelerate/vecLib BLAS spuriously raises the divide/overflow/invalid
     floating-point flags from its `matmul` path even when inputs and outputs are

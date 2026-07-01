@@ -373,6 +373,74 @@ def _display_char(ch):
     return _DISPLAY.get(ch, ch)
 
 
+def _dist(p, ctx_ids):
+    """Raw (temperature-1) next-char probability distribution for a single
+    K-length int context -- the same softmax prompt_confidence()/generate() use."""
+    logits, _ = forward(p, np.array([ctx_ids]))
+    l = logits[0]; l = l - l.max()
+    pr = np.exp(l); pr /= pr.sum()
+    return pr
+
+
+def _full_context_ids(p, stoi, itos, K, text, n_continuation, seed):
+    """The full int sequence the inspector reasons over: K pad slots, then the
+    teacher-forced prompt, then the model's OWN sampled continuation. The
+    continuation comes from generate() verbatim, so it is identical to what
+    generate() emits -- Marginalia re-derives nothing. Unknown chars map to PAD
+    (index 0), exactly as generate()/prompt_confidence() already treat them.
+    Returns (ids, n_prompt, cont_chars)."""
+    prompt_ids = [stoi.get(ch, 0) for ch in text]
+    cont = ""
+    if n_continuation > 0:
+        cont = generate(p, stoi, itos, K, prompt=text,
+                        n=n_continuation, seed=seed)[len(text):]
+    ids = [0] * K + prompt_ids + [stoi.get(ch, 0) for ch in cont]
+    return ids, len(prompt_ids), cont
+
+
+def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
+    """Maximal per-position white-box record over the teacher-forced prompt plus
+    the model's sampled continuation. Every number here is read from the weights
+    via forward() -- the honest version of what black-box tools can only fake.
+
+    Each record: the actual next char (+ readable display), whether it is the
+    typed prompt or the model's own continuation, normalized next-char entropy
+    (identical to prompt_confidence's), the top-k next-char distribution, the
+    literal K-char context window the model saw (∅ = pad), and where the actual
+    next char ranked (truth_rank/truth_prob; null when off-map)."""
+    ids, n_prompt, cont = _full_context_ids(p, stoi, itos, K, text,
+                                            n_continuation, seed)
+    chars = text + cont
+    records = []
+    for i, ch in enumerate(chars):
+        ctx = ids[i:i + K]
+        pr = _dist(p, ctx)
+        ent = float(-(pr * np.log(pr + 1e-12)).sum() / np.log(len(pr)))
+        order = np.argsort(pr)[::-1]
+        top = [[_display_char(itos[int(j)]), float(pr[int(j)])]
+               for j in order[:topk]]
+        if ch in stoi:
+            cid = stoi[ch]
+            truth_rank = int((pr > pr[cid]).sum()) + 1
+            truth_prob = float(pr[cid])
+            off = False
+        else:
+            truth_rank = truth_prob = None
+            off = True
+        records.append({
+            "char": ch,
+            "display": _display_char(ch),
+            "is_continuation": i >= n_prompt,
+            "entropy": ent,
+            "top_k": top,
+            "context_window": [_display_char(itos[int(c)]) for c in ctx],
+            "truth_rank": truth_rank,
+            "truth_prob": truth_prob,
+            "off_map": off,
+        })
+    return records
+
+
 def prompt_confidence(p, stoi, K, prompt):
     """Teacher-force through `prompt`, returning mean NORMALIZED next-char
     entropy (0 = certain, 1 = uniform) and any characters the model has never
