@@ -60,6 +60,16 @@ python colophon.py generate --prompt "availability_weights_"
 Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand:
 `python colophon.py --src ./osai --steps 8000 demo`.
 
+Alternatively, install it as a package and use the `colophon` console command:
+
+```bash
+pip install -e .
+colophon demo
+colophon generate --prompt "availability_weights_"
+```
+
+`python colophon.py ...` keeps working unchanged either way.
+
 Bundled `sample_data/` (three OSAI-style entries) lets it run with zero external
 data. For the real thing, clone the index and point at it:
 
