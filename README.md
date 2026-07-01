@@ -146,6 +146,19 @@ stdlib `http.server` and the page is plain HTML/JS with no build step or CDN
 calls; it's local-only and reuses `prompt_confidence()` / `scorecard_section()`
 from `colophon.py` rather than re-deriving them in JavaScript.
 
+### What Marginalia shows
+
+Marginalia is a live, zero-dependency inspector for a trained Colophon model.
+Type a prompt and every white-box signal the model has is rendered from its own
+weights: a **confidence heatmap** (each character tinted by next-char entropy),
+the **literal K-character context window** the model saw (with the pad horizon it
+cannot see past), **occlusion-based context saliency** (which remembered
+characters actually drove the prediction), a **top-k next-char inspector** with
+where the real next character ranked, and the OSAI **openness scorecard**. It is
+framed as the honest counterpart to black-box "observability" tools: a hosted API
+exposes none of this, and where a tool like glassboxllm has to *simulate*
+per-token confidence, Colophon reads it straight from the weights.
+
 ## Honest limits — read before showing anyone
 
 - **It is not intelligent.** A char-level MLP models local character statistics.

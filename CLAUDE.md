@@ -64,8 +64,12 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   `colophon.json` contract. Run: `python -m unittest test_colophon`.
 - `marginalia.py` — the live inspection UI (item #1 of the former "Open work"
   list). Stdlib-only `http.server` + a single vanilla-JS page; loads a trained
-  `colophon.npz` and serves `prompt_confidence()` / `scorecard_section()` live.
-  No new dependencies. Not imported by `colophon.py`.
+  `colophon.npz` and serves a five-region white-box inspector: a per-character
+  entropy heatmap, the literal K-char context window, occlusion-based context
+  saliency, a top-k next-char inspector, and the OSAI scorecard. Every signal is
+  read from the weights via `colophon.inspect_prompt()` / `context_saliency()` —
+  the honest version of what black-box tools can only simulate. No new
+  dependencies. Not imported by `colophon.py`.
 - `test_marginalia.py` — stdlib `unittest`; checks `analyze_prompt()` is a
   faithful wrapper around `prompt_confidence()` / `generate()`, including the
   off-map signal on an out-of-distribution prompt.
@@ -114,8 +118,12 @@ filed as #7 and shipped in #9.
 Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
 and the entropy/off-map signals.
 Done: **Marginalia** — the live inspection UI (`marginalia.py`, stdlib-only
-`http.server` + a single-page frontend) shows live entropy, the off-map/
-unknown-char flag, and the OSAI scorecard against a trained `colophon.npz`.
+`http.server` + a single-page frontend) is now a five-region white-box context
+inspector: per-character entropy heatmap, literal K-char context window,
+occlusion-based context saliency (`context_saliency()`), a top-k next-char
+inspector with the ground-truth char's rank, session aggregates, and the OSAI
+scorecard. Framed throughout as "the real version of what black-box LLM tools
+fake". Backed by `colophon.inspect_prompt()` / `context_saliency()`.
 
 ## The print-shop family (future naming)
 
