@@ -23,8 +23,16 @@ ships its own colophon."*
 - `python colophon.py demo` trains from zero (~10s, one CPU core) and prints
   generation, in- vs out-of-distribution confidence, and the openness scorecard,
   then writes `colophon.npz` + `colophon.json`.
-- Last verified: 3 sample files → 6,898 chars, vocab 56, 45,560 params, final
-  loss ~0.13. Scorecard: 10/12 open vs 0/12 for a typical closed model.
+- Last verified (sample): 3 sample files → 6,898 chars, vocab 56, 45,560 params,
+  final loss ~0.13 (overfit, on-theme). Scorecard: 10/12 open vs 0/12 for a
+  typical closed model.
+- Last verified (real index, `--src ./osai --steps 25000 demo`): 196 files →
+  579,109 chars, vocab 98, 51,986 params, final-step loss ~0.64 (no longer
+  overfitting — the intended effect of more data). In/out-of-dist entropy spread:
+  in-dist 0.148 / 0.209 / 0.179 (`weights_basemodel:` / `datasheet:` / `licenses:`
+  → `class: `), out-of-dist 0.311 (cell) / 0.338 (2027 election) / 0.590 (Japanese,
+  10 distinct chars never seen → off-map flag fires). Corpus `sha256` is a snapshot
+  recorded in `colophon.json`; the index grows, so re-run to refresh.
 
 ## Run it
 
@@ -33,7 +41,7 @@ pip install -r requirements.txt
 python colophon.py demo
 python colophon.py prepare
 python colophon.py --steps 8000 train
-python colophon.py generate --prompt "availability_weights_"
+python colophon.py generate --prompt "weights_basemodel:"
 ```
 
 Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
@@ -71,10 +79,14 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   dependency-free unless a task explicitly asks to scale up.
 - **It overfits the tiny sample. That's on-theme.** Don't add regularization to
   "improve" the 3-file demo; the fix is more data (the real index), not hiding it.
-- **The entropy-fooled-by-Japanese result is a feature.** On an OOD prompt the
-  model reported *lower* entropy than on its own text while every char was unseen.
-  That's the core lesson: confidence misses OOD; you need a categorical off-map
-  signal alongside it. Keep it visible in any UI.
+- **The entropy-fooled-by-Japanese result is a feature.** On the 3-file *sample*
+  an OOD prompt reported *lower* entropy than the model's own text while every char
+  was unseen. On the *real index* the magnitude flips (Japanese entropy ~0.59 vs
+  in-dist ~0.18) — entropy does rise, but only mildly and it still under-reacts,
+  and the un-foolable signal is the categorical off-map flag (10 distinct unseen
+  chars), not the entropy number. Either way the core lesson holds: confidence
+  under-reads OOD; you need a categorical off-map signal alongside it. Keep it
+  visible in any UI.
 - **Architecture is deliberately swappable.** A transformer block is a drop-in
   upgrade; it changes capability, not the argument.
 
@@ -88,18 +100,22 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 
 ## Open work (rough priority)
 
-1. **Run on the full OSAI index** and capture a cleaner in/out-of-dist spread.
+Nothing tracked — the original three items (transformer option, full-index run,
+`pip install -e .`) have all shipped; see Done below.
 
+Done: **full-index run** — trained on the real index (196 files, 579,109 chars,
+vocab 98, 51,986 params, loss ~0.64) and captured a clean in/out-of-dist spread;
+figures live in the Status section and README "Measured on the real index".
+Done: **transformer option** — `--arch transformer` (torch, lazily imported;
+`prepare`/`train`/`demo` accept it, `generate` reads the arch back from
+`colophon.npz`). The NumPy MLP stays the default and the auditable reference (#11).
+Done: **pip install -e .** — packaging with a `colophon` console entrypoint,
+filed as #7 and shipped in #9.
 Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
-and the entropy/off-map signals (was item #4).
+and the entropy/off-map signals.
 Done: **Marginalia** — the live inspection UI (`marginalia.py`, stdlib-only
 `http.server` + a single-page frontend) shows live entropy, the off-map/
 unknown-char flag, and the OSAI scorecard against a trained `colophon.npz`.
-Done: **transformer option** — `--arch transformer` (torch, lazily imported;
-`prepare`/`train`/`demo` accept it, `generate` reads the arch back from
-`colophon.npz`). The NumPy MLP stays the default and the auditable reference.
-Done: **pip install -e .** — packaging with a `colophon` console entrypoint,
-filed as #7 and shipped in #9.
 
 ## The print-shop family (future naming)
 

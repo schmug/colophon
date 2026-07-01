@@ -500,10 +500,14 @@ def _infer_K(p):
 # --------------------------------------------------------------------------- #
 
 # Prompts chosen to sit clearly inside vs outside the corpus distribution.
+# These mirror the real OSAI-index schema (nested dimension blocks: a top-level
+# key such as `weights_basemodel:` followed by an indented `class:`), so every
+# character is one the model has seen thousands of times. The bundled sample
+# files use a flattened key style; on the real index these are the in-corpus form.
 IN_DIST = [
-    "availability_weights_endmodel_class: ",
-    "documentation_datasheet_class: ",
-    "access_licenses_notes: ",
+    "weights_basemodel:\n    class: ",
+    "datasheet:\n    class: ",
+    "licenses:\n    class: ",
 ]
 OUT_DIST = [
     "The mitochondria is the powerhouse of the cell.",
@@ -550,7 +554,7 @@ def cmd_demo(args):
     print("\n--- generation from an in-distribution prompt "
           "(the model's native world) ---")
     print(repr(generate(p, stoi, itos, K,
-                        prompt="availability_weights_", n=180, seed=args.seed)))
+                        prompt="weights_basemodel:\n    class: ", n=180, seed=args.seed)))
 
     print("\n--- confidence: in-distribution vs out-of-distribution ---")
     print("  (normalized next-char entropy: 0 = certain, 1 = no idea)")
@@ -602,7 +606,7 @@ def main():
     sub.add_parser("train")
     sub.add_parser("demo")
     g = sub.add_parser("generate")
-    g.add_argument("--prompt", default="availability_")
+    g.add_argument("--prompt", default="weights_basemodel:")
     g.add_argument("--n", type=int, default=240)
 
     args = ap.parse_args()

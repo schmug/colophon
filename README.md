@@ -54,7 +54,7 @@ pip install -r requirements.txt          # just numpy
 python colophon.py demo                   # train + generate + confidence + scorecard
 python colophon.py prepare                # write colophon.json (data section) + print scope
 python colophon.py --steps 8000 train     # train and save colophon.npz + colophon.json
-python colophon.py generate --prompt "availability_weights_"
+python colophon.py generate --prompt "weights_basemodel:"
 ```
 
 Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand:
@@ -65,7 +65,7 @@ Alternatively, install it as a package and use the `colophon` console command:
 ```bash
 pip install -e .
 colophon demo
-colophon generate --prompt "availability_weights_"
+colophon generate --prompt "weights_basemodel:"
 ```
 
 `python colophon.py ...` keeps working unchanged either way.
@@ -75,8 +75,35 @@ data. For the real thing, clone the index and point at it:
 
 ```bash
 git clone https://codeberg.org/AI-Technology-Assessment/main-database osai
-python colophon.py --src ./osai demo
+python colophon.py --src ./osai --steps 25000 demo
 ```
+
+### Measured on the real index
+
+A run on the full index (snapshot: **196 files, 579,109 chars, vocab 98**; corpus
+`sha256` recorded in `colophon.json`) trains **51,986 params** to a final-step
+training loss of **~0.64** in ~11s on one CPU core. Unlike the 3-file sample it
+does **not** collapse to a memorized ~0.13 — 579K characters can't be stored in
+52K parameters, which is the point: *more data, not regularization*, is the fix.
+
+The in- vs out-of-distribution spread comes out clean (normalized next-char
+entropy, 0 = certain, 1 = uniform):
+
+| Prompt | Entropy | |
+|---|---|---|
+| `weights_basemodel:\n    class: ` (in-dist) | **0.148** | |
+| `datasheet:\n    class: ` (in-dist) | **0.209** | |
+| `licenses:\n    class: ` (in-dist) | **0.179** | |
+| "The mitochondria is the powerhouse of the cell." (out) | 0.311 | fluent, but not in its world |
+| "In 2027 the election results showed" (out) | 0.338 | fluent, but not in its world |
+| 日本語で書いてください (out) | 0.590 | **10 distinct chars never seen** — off-map flag fires |
+
+In-distribution prompts (~0.15–0.21) sit well below the out-of-distribution ones,
+and the Japanese case shows the lesson the whole project is built around: entropy
+alone under-reacts to out-of-distribution input, so the categorical off-map signal
+(unseen characters) has to sit next to it. These figures are a snapshot — the index
+grows over time; re-run to refresh, and check the `sha256` in `colophon.json` for
+the exact corpus you trained on.
 
 ### Optional: transformer architecture
 
@@ -87,7 +114,7 @@ higher-capacity run on the full index, install PyTorch and pass
 ```bash
 pip install torch
 python colophon.py --arch transformer --src ./osai --steps 8000 train
-python colophon.py generate --prompt "availability_weights_"   # arch is read back from colophon.npz
+python colophon.py generate --prompt "weights_basemodel:"   # arch is read back from colophon.npz
 ```
 
 Swapping architectures changes capability, not the argument: `generate` and the
@@ -124,7 +151,9 @@ from `colophon.py` rather than re-deriving them in JavaScript.
 - **It is not intelligent.** A char-level MLP models local character statistics.
   It produces corpus-*shaped* text, not reasoning. Don't read coherence into it.
 - **It overfits the tiny sample**, by design and on-theme — with a fully known
-  corpus you can watch it memorize. The full index (200+ files) is less degenerate.
+  corpus you can watch it memorize (final loss ~0.13 on 3 files). The full index
+  (196 files, 579K chars) does not: loss settles near ~0.64 and the in/out-of-dist
+  spread sharpens — see "Measured on the real index" above.
 - **The architecture is deliberately swappable.** A transformer block is a
   drop-in upgrade for a real GPU/MLX run; it changes capability, not the argument.
   The MLP keeps the manual backprop auditable by eye.
