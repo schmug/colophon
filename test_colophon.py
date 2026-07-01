@@ -13,6 +13,7 @@ Run: python -m unittest test_colophon    (or: python test_colophon.py)
 """
 
 import unittest
+import warnings
 import numpy as np
 
 import colophon as C
@@ -177,6 +178,54 @@ class TransformerArch(unittest.TestCase):
         out = C.generate(p2, self.stoi, self.itos, man["context_length_K"],
                           prompt="availability_", n=10, seed=0)
         self.assertTrue(out.startswith("availability_"))
+
+
+class AccelerateMatmulWarnings(unittest.TestCase):
+    """Apple's Accelerate/vecLib BLAS spuriously raises the divide/overflow/invalid
+    floating-point flags from its `matmul` path even when inputs and outputs are
+    finite, cluttering the demo. colophon suppresses ONLY those matmul false
+    positives -- a genuine NaN/Inf must still surface so the model stays auditable
+    by eye. We stand in for the (hardware-dependent) spurious flag with a real
+    matmul overflow, which reproduces deterministically on every platform."""
+
+    def _overflowing_params(self):
+        """init_params for the shapes; inflate the matmul weights so both the
+        context->hidden and hidden->logits matmuls genuinely overflow to inf."""
+        V, E, K, H = 7, 5, 3, 8
+        p = C.init_params(V, E, K, H, seed=0)
+        p["C"] = np.full_like(p["C"], 1e300)
+        p["W1"] = np.full_like(p["W1"], 1e300)
+        p["W2"] = np.full_like(p["W2"], 1e308)
+        return p, K
+
+    def test_matmul_warning_is_suppressed_in_forward(self):
+        p, K = self._overflowing_params()
+        Xb = np.zeros((4, K), dtype=np.int64)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            C.forward(p, Xb)
+        leaked = [str(w.message) for w in caught if "matmul" in str(w.message)]
+        self.assertEqual(leaked, [], f"matmul false positive leaked: {leaked}")
+
+    def test_genuine_overflow_still_surfaces_as_nan_loss(self):
+        # Silencing the cosmetic matmul flag must NOT hide a real blow-up: the
+        # inf/nan must still propagate to an auditable NaN loss.
+        p, K = self._overflowing_params()
+        Xb = np.zeros((4, K), dtype=np.int64)
+        Yb = np.zeros(4, dtype=np.int64)
+        loss, _ = C.loss_and_grads(p, Xb, Yb)
+        self.assertTrue(np.isnan(loss), "a real overflow must still surface")
+
+    def test_training_is_matmul_warning_clean(self):
+        # The end-to-end demo assertion: a real (short) training run must not
+        # emit the Accelerate matmul false positives on any platform.
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, stoi, _ = C.build_vocab(text)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            C.train_model(text, stoi, chars, steps=40, log_every=40)
+        leaked = sorted({str(w.message) for w in caught if "matmul" in str(w.message)})
+        self.assertEqual(leaked, [], f"matmul warnings during training: {leaked}")
 
 
 if __name__ == "__main__":

@@ -111,6 +111,15 @@ def data_manifest(text, paths, chars):
 # upgrade for a real run on a GPU/MLX; it changes capability, not the argument.
 # --------------------------------------------------------------------------- #
 
+# Apple's Accelerate/vecLib BLAS spuriously raises the divide/overflow/invalid
+# floating-point flags from its `matmul` path even when the inputs and outputs
+# are perfectly finite -- a well-known false positive that clutters the demo with
+# RuntimeWarnings. We scope an errstate around ONLY the matmul-bearing lines, so
+# these cosmetic flags stay quiet while a genuine NaN/Inf anywhere else (the
+# softmax exp/log, a diverged loss) still surfaces -- the model stays auditable
+# by eye. This is deliberately NOT a module-level np.seterr(all="ignore").
+_MATMUL_FP = dict(divide="ignore", over="ignore", invalid="ignore")
+
 def init_params(V, E, K, H, seed=0):
     rng = np.random.default_rng(seed)
     s = 0.02
@@ -132,8 +141,9 @@ def forward(p, Xb):
     B, K = Xb.shape
     emb = p["C"][Xb]                 # (B, K, E)
     x = emb.reshape(B, -1)           # (B, K*E)
-    h = np.tanh(x @ p["W1"] + p["b1"])   # (B, H)
-    logits = h @ p["W2"] + p["b2"]       # (B, V)
+    with np.errstate(**_MATMUL_FP):  # Accelerate BLAS matmul false positive; see above
+        h = np.tanh(x @ p["W1"] + p["b1"])   # (B, H)
+        logits = h @ p["W2"] + p["b2"]       # (B, V)
     return logits, (Xb, emb, x, h)
 
 
@@ -148,13 +158,14 @@ def loss_and_grads(p, Xb, Yb):
     dlogits = probs
     dlogits[np.arange(B), Yb] -= 1.0
     dlogits /= B
-    dW2 = h.T @ dlogits
-    db2 = dlogits.sum(0)
-    dh = dlogits @ p["W2"].T
-    dhpre = dh * (1.0 - h * h)            # tanh'
-    dW1 = x.T @ dhpre
-    db1 = dhpre.sum(0)
-    dx = dhpre @ p["W1"].T                # (B, K*E)
+    with np.errstate(**_MATMUL_FP):      # Accelerate BLAS matmul false positive; see above
+        dW2 = h.T @ dlogits
+        db2 = dlogits.sum(0)
+        dh = dlogits @ p["W2"].T
+        dhpre = dh * (1.0 - h * h)        # tanh'
+        dW1 = x.T @ dhpre
+        db1 = dhpre.sum(0)
+        dx = dhpre @ p["W1"].T            # (B, K*E)
     demb = dx.reshape(emb.shape)         # (B, K, E)
     dC = np.zeros_like(p["C"])
     np.add.at(dC, Xb, demb)              # scatter-add into embedding rows
