@@ -82,6 +82,25 @@ Outputs (gitignored, regenerable): `colophon.npz` (weights) and `colophon.json`
 — the model's own colophon: data section (datasheet), training section (model
 card), and its openness scorecard, in one self-describing file.
 
+## Marginalia — live inspection UI
+
+Once you've trained a model, `marginalia.py` serves a small local page that
+makes the same signals `demo` prints interactive:
+
+```bash
+python colophon.py demo      # or `train`; writes colophon.npz
+python marginalia.py         # serves http://127.0.0.1:8765
+```
+
+Type a prompt and watch the normalized next-char entropy, the off-map/unknown-
+character flag, and the OSAI scorecard update live. The off-map flag is always
+shown as its own indicator next to entropy, never folded into it — entropy can
+be fooled by out-of-distribution input (see below), so the categorical signal
+has to stay separate. Marginalia adds no dependencies: the server is Python's
+stdlib `http.server` and the page is plain HTML/JS with no build step or CDN
+calls; it's local-only and reuses `prompt_confidence()` / `scorecard_section()`
+from `colophon.py` rather than re-deriving them in JavaScript.
+
 ## Honest limits — read before showing anyone
 
 - **It is not intelligent.** A char-level MLP models local character statistics.
