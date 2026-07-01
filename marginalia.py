@@ -231,9 +231,20 @@ function renderAggregates() {
   const anchors = records.slice().sort((a, b) => a.entropy - b.entropy)
     .slice(0, 3).map(r => r.display).join(' ');
   const div = document.createElement('div');
-  div.innerHTML = `median entropy <b>${median.toFixed(3)}</b> &middot; ` +
-    `most-confident chars (anchors): <b>${anchors}</b> &middot; ` +
-    `off-map characters: <b>${offCount}</b>`;
+  const medianB = document.createElement('b');
+  medianB.textContent = median.toFixed(3);
+  const anchorsB = document.createElement('b');
+  anchorsB.textContent = anchors;
+  const offCountB = document.createElement('b');
+  offCountB.textContent = String(offCount);
+  div.append(
+    document.createTextNode('median entropy '),
+    medianB,
+    document.createTextNode(' · most-confident chars (anchors): '),
+    anchorsB,
+    document.createTextNode(' · off-map characters: '),
+    offCountB
+  );
   el.appendChild(div);
 }
 
