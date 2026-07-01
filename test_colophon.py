@@ -263,6 +263,52 @@ class InspectPrompt(unittest.TestCase):
         self.assertEqual(recs[0]["context_window"], ["∅", "∅", "∅", "∅"])
 
 
+class ContextSaliency(unittest.TestCase):
+    """Occlusion attribution over the K-char window: real, model-derived
+    'which remembered character mattered', not a simulated attention weight."""
+
+    def setUp(self):
+        self.text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(self.text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_window_shape_and_delta_range(self):
+        out = C.context_saliency(self.p, self.stoi, self.itos, self.K,
+                                 "weights", pos=6, n_continuation=0)
+        self.assertEqual(out["pos"], 6)
+        self.assertEqual(len(out["window"]), self.K)
+        for cell in out["window"]:
+            self.assertTrue(0.0 <= cell["delta"] <= 1.0)
+            for key in ("char", "display", "delta", "is_pad"):
+                self.assertIn(key, cell)
+
+    def test_pad_slot_has_zero_delta(self):
+        # Position 0 sees an all-pad context; occluding PAD with PAD changes nothing.
+        out = C.context_saliency(self.p, self.stoi, self.itos, self.K,
+                                 "weights", pos=0, n_continuation=0)
+        for cell in out["window"]:
+            self.assertTrue(cell["is_pad"])
+            self.assertAlmostEqual(cell["delta"], 0.0, places=12)
+
+    def test_delta_matches_hand_computed_tv_distance(self):
+        text = "weights"
+        pos = 6
+        out = C.context_saliency(self.p, self.stoi, self.itos, self.K, text,
+                                 pos=pos, n_continuation=0)
+        ids = [0] * self.K + [self.stoi.get(c, 0) for c in text]
+        ctx = ids[pos:pos + self.K]
+        base = C._dist(self.p, ctx)
+        occ = list(ctx); occ[0] = 0
+        expected = float(0.5 * np.abs(base - C._dist(self.p, occ)).sum())
+        self.assertAlmostEqual(out["window"][0]["delta"], expected, places=12)
+
+    def test_out_of_range_pos_raises(self):
+        with self.assertRaises(IndexError):
+            C.context_saliency(self.p, self.stoi, self.itos, self.K, "hi",
+                               pos=99, n_continuation=0)
+
+
 class AccelerateMatmulWarnings(unittest.TestCase):
     """Apple's Accelerate/vecLib BLAS spuriously raises the divide/overflow/invalid
     floating-point flags from its `matmul` path even when inputs and outputs are

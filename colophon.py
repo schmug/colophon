@@ -441,6 +441,33 @@ def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
     return records
 
 
+def context_saliency(p, stoi, itos, K, text, pos, n_continuation=80, seed=0):
+    """For the prediction at position `pos`, measure how much each of the K
+    remembered characters actually shaped it, by occluding each slot (replace
+    with PAD) and taking the total-variation distance between the baseline and
+    occluded next-char distributions. Pure NumPy over forward() -- the honest
+    analog of the attention weights glassboxllm had to simulate."""
+    ids, n_prompt, cont = _full_context_ids(p, stoi, itos, K, text,
+                                            n_continuation, seed)
+    n = n_prompt + len(cont)
+    if not (0 <= pos < n):
+        raise IndexError(f"pos {pos} out of range [0, {n})")
+    ctx = ids[pos:pos + K]
+    base = _dist(p, ctx)
+    window = []
+    for j in range(K):
+        occ = list(ctx); occ[j] = 0
+        delta = float(0.5 * np.abs(base - _dist(p, occ)).sum())
+        cid = int(ctx[j])
+        window.append({
+            "char": itos[cid],
+            "display": _display_char(itos[cid]),
+            "delta": delta,
+            "is_pad": cid == 0,
+        })
+    return {"pos": pos, "window": window}
+
+
 def prompt_confidence(p, stoi, K, prompt):
     """Teacher-force through `prompt`, returning mean NORMALIZED next-char
     entropy (0 = certain, 1 = uniform) and any characters the model has never
