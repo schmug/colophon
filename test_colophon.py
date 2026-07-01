@@ -17,6 +17,12 @@ import numpy as np
 
 import colophon as C
 
+try:
+    import torch  # noqa: F401  -- only used to gate the optional transformer tests
+    _HAS_TORCH = True
+except ImportError:
+    _HAS_TORCH = False
+
 
 class GradientCheck(unittest.TestCase):
     """Finite-difference check that loss_and_grads matches numerical gradients.
@@ -114,6 +120,63 @@ class ColophonJson(unittest.TestCase):
         col = C.build_colophon(dman, training=None)
         self.assertIsNone(col["training"])
         self.assertEqual(col["data"], dman)
+
+
+@unittest.skipUnless(_HAS_TORCH, "torch not installed -- --arch transformer is optional")
+class TransformerArch(unittest.TestCase):
+    """The optional --arch transformer path: torch is lazily imported, but once
+    present it must mirror the MLP's (B, K) contexts -> (B, V) logits interface
+    closely enough that generate()/prompt_confidence() work unmodified and the
+    colophon.json contract still holds."""
+
+    def setUp(self):
+        self.text, self.paths = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(self.text)
+
+    def _tiny_transformer(self):
+        return C.train_model(self.text, self.stoi, self.chars, K=4, E=8,
+                              steps=3, batch=8, log_every=3, seed=0, arch="transformer")
+
+    def test_manifest_records_arch(self):
+        p, man = self._tiny_transformer()
+        self.assertEqual(man["arch"], "transformer")
+        self.assertEqual(p["_arch"], "transformer")
+        self.assertGreater(man["parameters"], 0)
+
+    def test_generate_and_confidence_use_shared_interface(self):
+        p, man = self._tiny_transformer()
+        K = man["context_length_K"]
+        out = C.generate(p, self.stoi, self.itos, K, prompt="availability_", n=10, seed=0)
+        self.assertTrue(out.startswith("availability_"))
+
+        _, unknown = C.prompt_confidence(p, self.stoi, K, self.text[:20])
+        self.assertEqual(unknown, [], "native text should have no off-map chars")
+        _, unknown = C.prompt_confidence(p, self.stoi, K, "日本語")
+        self.assertTrue(unknown, "expected off-map characters to be flagged")
+
+    def test_colophon_json_contract_holds(self):
+        p, man = self._tiny_transformer()
+        dman = C.data_manifest(self.text, self.paths, self.chars)
+        col = C.build_colophon(dman, man)
+        self.assertEqual(col["training"]["arch"], "transformer")
+        self.assertEqual(len(col["scorecard"]["dimensions"]), len(C.SCORECARD))
+
+    def test_save_load_roundtrip(self):
+        p, man = self._tiny_transformer()
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            orig_here, orig_file = C.HERE, C.WEIGHTS_FILE
+            C.HERE, C.WEIGHTS_FILE = d, "colophon.npz"
+            try:
+                C.save_weights(p, self.chars)
+                p2, chars2 = C.load_weights()
+            finally:
+                C.HERE, C.WEIGHTS_FILE = orig_here, orig_file
+        self.assertEqual(chars2, self.chars)
+        self.assertEqual(C._infer_K(p2), man["context_length_K"])
+        out = C.generate(p2, self.stoi, self.itos, man["context_length_K"],
+                          prompt="availability_", n=10, seed=0)
+        self.assertTrue(out.startswith("availability_"))
 
 
 if __name__ == "__main__":
