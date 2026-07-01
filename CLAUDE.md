@@ -51,6 +51,9 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 - `competence_gate.py` — companion from the same design session: the *estimate*
   end (domain-cluster distance + cutoff/temporal parser as a pre-generation gate).
   Colophon is the *ground-truth* end. Not imported by `colophon.py`.
+- `test_colophon.py` — stdlib `unittest` + NumPy only. Finite-difference gradient
+  check on the manual backprop, the off-map/unknown-char signal, and the unified
+  `colophon.json` contract. Run: `python -m unittest test_colophon`.
 - `README.md` — full concept/problem/solution + honest limits + counter-position +
   OSAI attribution.
 
@@ -84,9 +87,10 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 2. **Transformer option** — a `--arch transformer` path (torch/MLX) for the full
    index; keep the NumPy MLP as the auditable default.
 3. **Run on the full OSAI index** and capture a cleaner in/out-of-dist spread.
-4. **Tests** — finite-difference gradient check on the manual backprop; checks on
-   the entropy/off-map signals.
-5. Optional: `pip install -e .` with a `colophon` console entrypoint.
+4. Optional: `pip install -e .` with a `colophon` console entrypoint.
+
+Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
+and the entropy/off-map signals (was item #4).
 
 ## The print-shop family (future naming)
 
@@ -111,4 +115,4 @@ every axis." Don't let it drift into propaganda.
 ## Attribution reminder
 
 Training on the real index → the corpus is CC-BY; cite doi:10.5281/zenodo.15386042.
-Colophon code is MIT (`LICENSE`); update the holder from the `schmug` placeholder.
+Colophon code is MIT (`LICENSE`), © schmug.
