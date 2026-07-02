@@ -348,14 +348,15 @@ class HandlerDegraded(unittest.TestCase):
 
 
 class IndexHtmlContract(unittest.TestCase):
-    """The single-page inspector must ship all five regions + the black-box
-    framing banner, and must not smuggle in an external dependency."""
+    """The single-page inspector must ship all six regions (incl. the full
+    context-window sidebar) + the black-box framing banner, and must not
+    smuggle in an external dependency."""
 
     def test_regions_present(self):
         html = M.INDEX_HTML
         for marker in ('id="heatmap"', 'id="rail"', 'id="saliency"',
                        'id="inspector"', 'id="aggregates"', 'id="scorecard"',
-                       'id="bb-banner"'):
+                       'id="bb-banner"', 'id="sidebar"', 'id="tape"'):
             self.assertIn(marker, html)
 
     def test_calls_both_apis(self):

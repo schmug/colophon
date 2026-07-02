@@ -296,9 +296,11 @@ class InspectPrompt(unittest.TestCase):
         self.assertEqual(len(recs), len("weights") + 6)
         r = recs[0]
         for key in ("char", "display", "is_continuation", "entropy", "top_k",
-                    "context_window", "truth_rank", "truth_prob", "off_map"):
+                    "context_window", "context_types", "truth_rank", "truth_prob",
+                    "off_map"):
             self.assertIn(key, r)
         self.assertEqual(len(r["context_window"]), self.K)
+        self.assertEqual(len(r["context_types"]), self.K)
         self.assertTrue(all(recs[i]["is_continuation"] is False
                             for i in range(len("weights"))))
         self.assertTrue(recs[-1]["is_continuation"] is True)
@@ -347,6 +349,32 @@ class InspectPrompt(unittest.TestCase):
                                 n_continuation=0)
         # Position 0 sees an all-pad context.
         self.assertEqual(recs[0]["context_window"], ["∅", "∅", "∅", "∅"])
+
+    def test_context_types_distinguish_pad_offmap_prompt_continuation(self):
+        # "日" is unseen (off-map), "x" is ASCII (in vocab); K=4 so the first
+        # record's window is entirely synthetic pad, and later windows mix in
+        # the off-map char, the rest of the prompt, and the continuation --
+        # all of which collapse to the same '∅' display glyph as real pad, so
+        # context_types is the only way to tell them apart.
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "日x",
+                                n_continuation=2, seed=0)
+        self.assertEqual(len(recs), 4)
+        # Record 0 ('日'): window is [K synthetic pad slots].
+        self.assertEqual(recs[0]["context_types"], ["pad"] * self.K)
+        # Record 1 ('x'): window's last slot is the off-map '日', not pad,
+        # even though both render as id 0 / glyph '∅'.
+        self.assertEqual(recs[1]["context_types"], ["pad", "pad", "pad", "off_map"])
+        # Record 2 (first continuation char): window now includes the
+        # off-map char and the known prompt char 'x'.
+        self.assertEqual(recs[2]["context_types"], ["pad", "pad", "off_map", "prompt"])
+        # Record 3 (second continuation char): window's own predecessor is
+        # itself a continuation char.
+        self.assertEqual(recs[3]["context_types"],
+                         ["pad", "off_map", "prompt", "continuation"])
+        # No slot type outside the documented four values.
+        for r in recs:
+            for t in r["context_types"]:
+                self.assertIn(t, ("pad", "off_map", "prompt", "continuation"))
 
 
 class ContextSaliency(unittest.TestCase):
