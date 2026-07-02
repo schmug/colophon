@@ -146,6 +146,31 @@ stdlib `http.server` and the page is plain HTML/JS with no build step or CDN
 calls; it's local-only and reuses `prompt_confidence()` / `scorecard_section()`
 from `colophon.py` rather than re-deriving them in JavaScript.
 
+### Teaching mode — a corpus you can grade by eye
+
+The openness index is real and rich, but it's jargon a layperson can't check, so
+they have to take "94% sure" on faith — the exact thing Colophon exists to
+abolish. So Marginalia ships a second corpus whose ground truth already lives in
+your head: **the periodic table** (118 elements, `number / symbol / name /
+period`). Toggle to it and the confidence signals become auditable against facts
+you already know.
+
+```bash
+# train the teaching model to its own weights (never clobbers colophon.npz)
+python colophon.py --src teaching_data/elements --out elements.npz --steps 4000 train
+python marginalia.py        # the page now shows an "Openness index / Periodic table" toggle
+```
+
+The payoff is a lesson you can verify yourself: ask for `number: 26` and it
+confidently answers `Fe / Iron` — correct. Ask for a **made-up** `number: 250`
+and it stays *just as* confident (~94%, off-map flag clean) while inventing a
+fake element. The friendly percentage and the character-level off-map check both
+miss it; only reading the corpus — or knowing 250 isn't an element — catches it.
+That's the "fluent, certain, and wrong" failure made legible on common
+knowledge. The 118 files are checked in and regenerable
+(`python teaching_data/build_elements.py`), so the data can't silently drift from
+its cited source.
+
 ## Honest limits — read before showing anyone
 
 - **It is not intelligent.** A char-level MLP models local character statistics.
@@ -185,3 +210,10 @@ Index / AI Technology Assessment project:
 If you train Colophon on the real index (`--src ./osai`), your corpus is the
 index's CC-BY content — cite it per its license. The Colophon code is MIT (see
 `LICENSE`).
+
+The periodic-table teaching corpus (`teaching_data/`) is built from element
+facts — atomic numbers, symbols, and IUPAC names/spellings — which are
+public-domain data (not copyrightable). Source of record: the
+[IUPAC Periodic Table of the Elements](https://iupac.org/what-we-do/periodic-table-of-elements/).
+Group is deliberately omitted: the f-block's group assignment is genuinely
+unsettled, and this corpus ships only undisputed facts.

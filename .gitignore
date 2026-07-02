@@ -2,6 +2,13 @@
 colophon.npz
 colophon.json
 
+# Generated teaching model (regenerate: python colophon.py --src teaching_data/elements --out elements.npz --steps 4000 train)
+elements.npz
+elements.json
+
+# Preview/dev launch config (local convenience, machine-specific ports)
+.claude/launch.json
+
 # Transfer/scratch archives (never committed)
 *.zip
 

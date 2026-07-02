@@ -34,6 +34,42 @@ SOURCE_CONTEXT_CHARS = 40  # chars of corpus context shown on each side of a mat
 
 REQUIRED_KEYS = ("chars", "C", "W1", "b1", "W2", "b2")
 
+# The two corpora the page can switch between. OSAI is the flagship (carries the
+# self-referential openness argument); elements is the layperson on-ramp (ground
+# truth already in the reader's head, so the signals can be checked against what
+# they already know). Copy lives here, server-side, so /api/modes drives the
+# page and nothing is re-authored in JavaScript.
+MODE_META = {
+    "osai": {
+        "label": "Openness index",
+        "blurb": ("The flagship corpus — the European Open Source AI Index. Real "
+                  "and rich, but jargon you can't grade by eye, so you have to "
+                  "take the confidence signals on faith."),
+        "examples": [
+            ("Something it trained on", "weights_basemodel:"),
+            ("Characters it’s never seen", "日本語"),
+            ("A topic outside its data", "the 2027 election"),
+        ],
+        "train_hint": "python colophon.py demo",
+    },
+    "elements": {
+        "label": "Periodic table",
+        "blurb": ("A teaching corpus of facts you already know: 118 elements. Ask "
+                  "for a real one and check the answer yourself; ask for a made-up "
+                  "“number: 250” and watch it stay just as “sure” "
+                  "— the confidence number can't tell you it's inventing. Only "
+                  "the off-map flag can."),
+        "examples": [
+            ("A real element (26 = Iron)", "number: 26\n"),
+            ("A made-up element", "number: 250\n"),
+            ("Characters it’s never seen", "日本語"),
+        ],
+        "train_hint": ("python colophon.py --src teaching_data/elements "
+                       "--out elements.npz --steps 4000 train"),
+    },
+}
+DEFAULT_MODE = "osai"
+
 
 def load_model(npz_path: str):
     """Mirrors the .npz load path in colophon.cmd_generate().
@@ -193,6 +229,13 @@ INDEX_HTML = """<!DOCTYPE html>
   .offmap { font-weight: bold; }
   .offmap.ok { color: #2a6; }
   .offmap.flagged { color: #d33; }
+  .mode-toggle { display: flex; flex-wrap: wrap; gap: .4rem; margin: .6rem 0 .2rem; }
+  .mode-toggle button { font: inherit; font-size: .85rem; cursor: pointer;
+                        border: 1px solid #8886; border-radius: 6px;
+                        padding: .3rem .8rem; background: #8881; color: inherit; }
+  .mode-toggle button.active { background: #2a63; border-color: #2a6;
+                               font-weight: bold; }
+  .mode-toggle button:disabled { opacity: .45; cursor: not-allowed; }
   .examples { margin: .5rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
   .examples button { font: inherit; font-size: .8rem; cursor: pointer;
                      border: 1px solid #8886; border-radius: 999px;
@@ -209,18 +252,16 @@ INDEX_HTML = """<!DOCTYPE html>
 </head>
 <body>
 <h1><span class="glyph">&#10087;</span> Marginalia</h1>
-<p class="muted">This is a tiny language model trained only on the open-source AI
-index. Type something and watch its own honesty signals react &mdash; how sure it
-is, whether it has ever seen these characters, and what it would write next. Every
-signal is computed by the model's own weights, not guessed at in JavaScript.</p>
+<p class="muted">A tiny language model whose every honesty signal &mdash; how sure it
+is, whether it has ever seen these characters, what it would write next &mdash; is
+computed by its own weights, not guessed at in JavaScript. Pick a corpus:</p>
+
+<div class="mode-toggle" id="mode-toggle"></div>
+<p class="muted" id="mode-blurb">&nbsp;</p>
 
 <textarea id="prompt" aria-label="Prompt" placeholder="Type here, or tap an example below&hellip;" autofocus></textarea>
 
-<div class="examples">
-  <button type="button" data-prompt="weights_basemodel:">Something it trained on</button>
-  <button type="button" data-prompt="&#26085;&#26412;&#35486;&#12391;&#26360;&#12356;&#12390;&#12367;&#12384;&#12373;&#12356;">Characters it&rsquo;s never seen</button>
-  <button type="button" data-prompt="the 2027 election">A topic outside its data</button>
-</div>
+<div class="examples" id="examples"></div>
 
 <div class="panel">
   <h2>How sure is the model about what comes next?</h2>
@@ -324,9 +365,13 @@ function renderSource(source) {
   sourceSnippetEl.appendChild(postSpan);
 }
 
+let activeMode = null;
+
 async function analyze(prompt) {
+  if (!activeMode) return;
   try {
-    const res = await fetch('/api/analyze?prompt=' + encodeURIComponent(prompt));
+    const res = await fetch('/api/analyze?mode=' + encodeURIComponent(activeMode) +
+                            '&prompt=' + encodeURIComponent(prompt));
     const data = await res.json();
     if (!res.ok) {
       errorEl.textContent = data.error || ('error ' + res.status);
@@ -343,14 +388,61 @@ promptEl.addEventListener('input', () => {
   debounceTimer = setTimeout(() => analyze(promptEl.value), 200);
 });
 
-document.querySelectorAll('.examples button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    promptEl.value = btn.dataset.prompt;
-    promptEl.focus();
-    clearTimeout(debounceTimer);
-    analyze(promptEl.value);
+const modeToggleEl = document.getElementById('mode-toggle');
+const modeBlurbEl = document.getElementById('mode-blurb');
+const examplesEl = document.getElementById('examples');
+
+function renderExamples(mode) {
+  examplesEl.innerHTML = '';
+  mode.examples.forEach(ex => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = ex.label;
+    btn.addEventListener('click', () => {
+      promptEl.value = ex.prompt;
+      promptEl.focus();
+      clearTimeout(debounceTimer);
+      analyze(promptEl.value);
+    });
+    examplesEl.appendChild(btn);
   });
-});
+}
+
+function applyMode(mode) {
+  activeMode = mode.id;
+  modeBlurbEl.textContent = mode.blurb;
+  modeToggleEl.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode.id));
+  renderExamples(mode);
+  errorEl.textContent = '';
+  analyze(promptEl.value);
+}
+
+async function loadModes() {
+  try {
+    const res = await fetch('/api/modes');
+    const data = await res.json();
+    const byId = {};
+    data.modes.forEach(m => { byId[m.id] = m; });
+    modeToggleEl.innerHTML = '';
+    data.modes.forEach(m => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.mode = m.id;
+      btn.textContent = m.available ? m.label : m.label + ' (not trained)';
+      btn.disabled = !m.available;
+      btn.addEventListener('click', () => applyMode(m));
+      modeToggleEl.appendChild(btn);
+    });
+    const start = byId[data.default] && byId[data.default].available
+      ? byId[data.default]
+      : data.modes.find(m => m.available);
+    if (start) applyMode(start);
+    else errorEl.textContent = 'No trained model found -- run `python colophon.py demo` first.';
+  } catch (e) {
+    errorEl.textContent = String(e);
+  }
+}
 
 function renderScorecard(sc) {
   const tbody = document.querySelector('#scorecard tbody');
@@ -384,19 +476,36 @@ fetch('/api/scorecard').then(r => r.json()).then(renderScorecard).catch(e => {
   errorEl.textContent = String(e);
 });
 
-analyze('');
+loadModes();
 </script>
 </body>
 </html>
 """
 
 
-def make_handler(model, files=()):
-    """model is (p, stoi, itos, K) if a trained colophon.npz was found, else
-    None -- the scorecard and page still serve either way; /api/analyze
-    reports 503 until a model exists. files is the corpus loaded by
-    load_corpus_files(), used for the source-echo panel; an empty corpus just
-    makes every prompt report as absent from the training data."""
+def make_handler(modes, default_mode=DEFAULT_MODE):
+    """modes maps a mode id (e.g. "osai", "elements") to a config dict:
+        {"model": (p, stoi, itos, K) or None,   # None if that npz was absent
+         "files": [(name, text), ...],           # corpus for the source panel
+         "label": str, "blurb": str,             # page copy
+         "examples": [(label, prompt), ...],
+         "train_hint": str}                      # shown in the 503 message
+    The scorecard and page serve regardless of which models loaded; /api/analyze
+    reports 400 for an unknown mode and 503 for a known mode whose model is
+    absent, so one missing corpus never takes the page down."""
+
+    def _modes_payload():
+        return {
+            "default": default_mode,
+            "modes": [
+                {"id": mid, "label": cfg.get("label", mid),
+                 "blurb": cfg.get("blurb", ""),
+                 "available": cfg.get("model") is not None,
+                 "examples": [{"label": lbl, "prompt": pr}
+                              for lbl, pr in cfg.get("examples", [])]}
+                for mid, cfg in modes.items()
+            ],
+        }
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def _send(self, status, content_type, body: bytes):
@@ -416,17 +525,26 @@ def make_handler(model, files=()):
                 self._send(200, "text/html; charset=utf-8", INDEX_HTML.encode("utf-8"))
             elif parsed.path == "/api/scorecard":
                 self._send_json(colophon.scorecard_section())
+            elif parsed.path == "/api/modes":
+                self._send_json(_modes_payload())
             elif parsed.path == "/api/analyze":
-                if model is None:
+                qs = urllib.parse.parse_qs(parsed.query)
+                mode = qs.get("mode", [default_mode])[0]
+                if mode not in modes:
+                    self._send_json({"error": f"unknown mode: {mode!r}"}, status=400)
+                    return
+                cfg = modes[mode]
+                if cfg.get("model") is None:
+                    hint = cfg.get("train_hint", "python colophon.py demo")
                     self._send_json(
-                        {"error": "no trained model found -- run `python colophon.py demo` first"},
+                        {"error": f"no trained model for '{mode}' -- run `{hint}` first"},
                         status=503)
                     return
-                qs = urllib.parse.parse_qs(parsed.query)
                 prompt = qs.get("prompt", [""])[0][:MAX_PROMPT_LEN]
-                p, stoi, itos, K = model
+                p, stoi, itos, K = cfg["model"]
                 try:
-                    result = analyze_prompt(p, stoi, itos, K, prompt, files=files)
+                    result = analyze_prompt(p, stoi, itos, K, prompt,
+                                            files=cfg.get("files", ()))
                 except Exception as e:
                     self._send_json(
                         {"error": f"analysis failed: {e}"}, status=500)
@@ -438,48 +556,73 @@ def make_handler(model, files=()):
     return Handler
 
 
+def _load_mode(mode_id, npz_path, src_dir):
+    """Load one mode's model + corpus, print the same graceful warnings as
+    before, and verify the corpus against the colophon.json that pairs with
+    this npz. Returns (model_or_None, files)."""
+    model = None
+    try:
+        model = load_model(npz_path)
+    except FileNotFoundError:
+        print(f"warning [{mode_id}]: no trained model at {npz_path} -- this mode "
+              f"will be offered but unavailable until you train it")
+    except (OSError, ValueError, KeyError) as e:
+        print(f"warning [{mode_id}]: could not load model at {npz_path} ({e}) -- "
+              f"this mode will be unavailable; the page still works")
+
+    files = load_corpus_files(src_dir)
+    if not files:
+        print(f"warning [{mode_id}]: no .yaml/.yml files in {src_dir} -- the "
+              f"source-echo panel will report every prompt as absent")
+    else:
+        json_path = colophon.colophon_json_path(npz_path)
+        try:
+            with open(json_path) as f:
+                recorded_sha = json.load(f).get("data", {}).get("sha256")
+        except (OSError, json.JSONDecodeError):
+            recorded_sha = None
+        if recorded_sha and corpus_sha256(files) != recorded_sha:
+            print(f"warning [{mode_id}]: corpus at {src_dir} does not match "
+                  f"{os.path.basename(json_path)}'s recorded sha256 -- it's a "
+                  f"snapshot; retrain to refresh it")
+    return model, files
+
+
 def main():
+    default_elements_npz = os.path.join(colophon.HERE, "elements.npz")
+    default_elements_src = os.path.join(colophon.HERE, "teaching_data", "elements")
     ap = argparse.ArgumentParser(
         description="Marginalia -- live inspection UI for Colophon.")
     ap.add_argument("--npz", default=os.path.join(colophon.HERE, colophon.WEIGHTS_FILE),
-                    help="path to a trained colophon.npz (default: bundled location)")
+                    help="trained OSAI colophon.npz (default: bundled location)")
     ap.add_argument("--src", default=colophon.DEFAULT_SRC,
-                    help="directory of OSAI-index .yaml files for the live "
-                         "source-echo panel (default: bundled sample)")
+                    help="directory of OSAI-index .yaml files (default: bundled sample)")
+    ap.add_argument("--elements-npz", default=default_elements_npz,
+                    help="trained periodic-table elements.npz for the teaching mode "
+                         "(default: elements.npz beside colophon.py)")
+    ap.add_argument("--elements-src", default=default_elements_src,
+                    help="directory of the periodic-table .yaml files "
+                         "(default: teaching_data/elements)")
     ap.add_argument("--host", default="127.0.0.1", help="local-only by default")
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
 
-    model = None
-    try:
-        model = load_model(args.npz)
-    except FileNotFoundError:
-        print(f"warning: no trained model at {args.npz} -- entropy/off-map will "
-              f"be unavailable until you run `python colophon.py demo` (or train)")
-    except (OSError, ValueError, KeyError) as e:
-        print(f"warning: could not load model at {args.npz} ({e}) -- entropy/"
-              f"off-map will be unavailable; the scorecard and page still work")
+    sources = {"osai": (args.npz, args.src),
+               "elements": (args.elements_npz, args.elements_src)}
+    modes = {}
+    for mode_id, meta in MODE_META.items():
+        npz_path, src_dir = sources[mode_id]
+        model, files = _load_mode(mode_id, npz_path, src_dir)
+        modes[mode_id] = {"model": model, "files": files, **meta}
 
-    files = load_corpus_files(args.src)
-    if not files:
-        print(f"warning: no .yaml/.yml files found in {args.src} -- the "
-              f"source-echo panel will report every prompt as absent")
-    else:
-        colophon_json_path = os.path.join(colophon.HERE, colophon.COLOPHON_FILE)
-        try:
-            with open(colophon_json_path) as f:
-                recorded_sha = json.load(f).get("data", {}).get("sha256")
-        except (OSError, json.JSONDecodeError):
-            recorded_sha = None
-        if recorded_sha:
-            live_sha = corpus_sha256(files)
-            if live_sha != recorded_sha:
-                print(f"warning: corpus at {args.src} (sha256 {live_sha[:12]}...) "
-                      f"does not match {colophon.COLOPHON_FILE}'s recorded sha256 "
-                      f"({recorded_sha[:12]}...) -- colophon.json is a snapshot; "
-                      f"run `python colophon.py demo` to refresh it")
+    # Open on an available mode: prefer the flagship, fall back to whatever loaded.
+    default_mode = DEFAULT_MODE
+    if modes[default_mode]["model"] is None:
+        available = [mid for mid, cfg in modes.items() if cfg["model"] is not None]
+        default_mode = available[0] if available else DEFAULT_MODE
 
-    httpd = http.server.HTTPServer((args.host, args.port), make_handler(model, files))
+    httpd = http.server.HTTPServer((args.host, args.port),
+                                   make_handler(modes, default_mode=default_mode))
     print(f"Marginalia serving at http://{args.host}:{args.port}  (Ctrl+C to stop)")
     try:
         httpd.serve_forever()

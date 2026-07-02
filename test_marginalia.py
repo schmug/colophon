@@ -181,20 +181,27 @@ class ScorecardPassthrough(unittest.TestCase):
 
 
 def _make_model():
-    """A small but real model tuple, as make_handler() expects it."""
+    """A small but real model tuple, as a mode config expects it."""
     text, _ = C.load_corpus(C.DEFAULT_SRC)
     chars, stoi, itos = C.build_vocab(text)
     p = C.init_params(len(chars), 8, 4, 16, seed=0)
     return p, stoi, itos, 4
 
 
+def _make_modes(model, files=()):
+    """One-mode `modes` dict in the shape make_handler() now expects."""
+    return {"osai": {"model": model, "files": files, "label": "Openness index",
+                     "blurb": "flagship", "examples": [("ex", "weights")]}}
+
+
 class _ServerFixture:
     """Boots a Handler on an ephemeral port in a background thread. The
-    do_GET() routing (4 paths, statuses 200/503/404/500) is only reachable
+    do_GET() routing (paths, statuses 200/400/503/404/500) is only reachable
     through a live server, so these tests exercise the class end to end."""
 
-    def __init__(self, model):
-        self.httpd = HTTPServer(("127.0.0.1", 0), M.make_handler(model))
+    def __init__(self, modes, default_mode="osai"):
+        self.httpd = HTTPServer(("127.0.0.1", 0),
+                                M.make_handler(modes, default_mode=default_mode))
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         self.thread.start()
 
@@ -220,7 +227,7 @@ class _ServerFixture:
 class HandlerRouting(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = _ServerFixture(_make_model())
+        cls.server = _ServerFixture(_make_modes(_make_model()))
 
     @classmethod
     def tearDownClass(cls):
@@ -265,7 +272,7 @@ class HandlerRouting(unittest.TestCase):
 
 class HandlerDegraded(unittest.TestCase):
     def test_analyze_503_when_no_model(self):
-        server = _ServerFixture(None)
+        server = _ServerFixture(_make_modes(None))
         try:
             status, headers, body = server.get("/api/analyze?prompt=hi")
             self.assertEqual(status, 503)
@@ -276,7 +283,7 @@ class HandlerDegraded(unittest.TestCase):
             server.close()
 
     def test_scorecard_still_serves_without_model(self):
-        server = _ServerFixture(None)
+        server = _ServerFixture(_make_modes(None))
         try:
             status, _, body = server.get("/api/scorecard")
             self.assertEqual(status, 200)
@@ -287,7 +294,7 @@ class HandlerDegraded(unittest.TestCase):
     def test_analyze_500_on_analysis_failure(self):
         # A corrupted model can make analyze_prompt() raise mid-request; the
         # handler must return a 500 JSON body rather than dropping the socket.
-        server = _ServerFixture(_make_model())
+        server = _ServerFixture(_make_modes(_make_model()))
         try:
             with unittest.mock.patch.object(
                     M, "analyze_prompt", side_effect=ValueError("boom")):
@@ -296,6 +303,73 @@ class HandlerDegraded(unittest.TestCase):
             self.assertEqual(headers["Content-Type"],
                              "application/json; charset=utf-8")
             self.assertIn("boom", json.loads(body)["error"])
+        finally:
+            server.close()
+
+
+class ModeRouting(unittest.TestCase):
+    """The teaching-mode toggle: two models served from one page, /api/analyze
+    routes by ?mode=, and /api/modes tells the frontend what's available."""
+
+    @classmethod
+    def setUpClass(cls):
+        model = _make_model()
+        cls.modes = {
+            "osai": {"model": model, "files": (), "label": "Openness index",
+                     "blurb": "flagship", "examples": [("a", "weights")]},
+            "elements": {"model": model, "files": (), "label": "Periodic table",
+                         "blurb": "teaching", "examples": [("b", "number: 26\n")]},
+        }
+        cls.server = _ServerFixture(cls.modes, default_mode="osai")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def test_modes_endpoint_lists_both_available(self):
+        status, _, body = self.server.get("/api/modes")
+        self.assertEqual(status, 200)
+        data = json.loads(body)
+        self.assertEqual(data["default"], "osai")
+        by_id = {m["id"]: m for m in data["modes"]}
+        self.assertEqual(set(by_id), {"osai", "elements"})
+        self.assertTrue(by_id["osai"]["available"] and by_id["elements"]["available"])
+        # examples come through as {label, prompt} objects the page can render.
+        self.assertEqual(by_id["elements"]["examples"][0]["prompt"], "number: 26\n")
+
+    def test_analyze_routes_to_requested_mode(self):
+        status, _, body = self.server.get("/api/analyze?mode=elements&prompt=number")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["prompt"], "number")
+
+    def test_no_mode_uses_default(self):
+        status, _, body = self.server.get("/api/analyze?prompt=weights")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["prompt"], "weights")
+
+    def test_unknown_mode_400(self):
+        status, _, body = self.server.get("/api/analyze?mode=bogus&prompt=x")
+        self.assertEqual(status, 400)
+        self.assertIn("error", json.loads(body))
+
+
+class ModeDegraded(unittest.TestCase):
+    def test_absent_mode_model_503_and_marked_unavailable(self):
+        modes = {
+            "osai": {"model": _make_model(), "files": (), "label": "o",
+                     "blurb": "", "examples": []},
+            "elements": {"model": None, "files": (), "label": "e",
+                         "blurb": "", "examples": []},
+        }
+        server = _ServerFixture(modes, default_mode="osai")
+        try:
+            status, _, body = server.get("/api/analyze?mode=elements&prompt=x")
+            self.assertEqual(status, 503)
+            self.assertIn("error", json.loads(body))
+            _, _, modes_body = server.get("/api/modes")
+            by_id = {m["id"]: m for m in json.loads(modes_body)["modes"]}
+            self.assertFalse(by_id["elements"]["available"])
+            self.assertTrue(by_id["osai"]["available"])
         finally:
             server.close()
 

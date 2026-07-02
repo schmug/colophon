@@ -458,9 +458,10 @@ def build_colophon(data, training=None):
     }
 
 
-def write_colophon(data, training=None):
+def write_colophon(data, training=None, path=None):
     col = build_colophon(data, training)
-    with open(os.path.join(HERE, COLOPHON_FILE), "w") as f:
+    path = path or os.path.join(HERE, COLOPHON_FILE)
+    with open(path, "w") as f:
         json.dump(col, f, indent=2, ensure_ascii=False)
     return col
 
@@ -472,8 +473,23 @@ def write_colophon(data, training=None):
 # without the CLI having to pass --arch again.
 # --------------------------------------------------------------------------- #
 
-def save_weights(p, chars):
-    path = os.path.join(HERE, WEIGHTS_FILE)
+def _resolve_out(out):
+    """A None --out keeps the historical default (colophon.npz beside this file);
+    a relative --out (e.g. `elements.npz`) resolves next to it too, so a second
+    model lands in the same place Marginalia looks by default."""
+    if out is None:
+        return os.path.join(HERE, WEIGHTS_FILE)
+    return out if os.path.isabs(out) else os.path.join(HERE, out)
+
+
+def colophon_json_path(weights_path):
+    """The colophon.json that pairs with a given weights file: same stem, .json
+    extension (colophon.npz -> colophon.json, elements.npz -> elements.json)."""
+    return os.path.splitext(weights_path)[0] + ".json"
+
+
+def save_weights(p, chars, path=None):
+    path = _resolve_out(path)
     if p.get("_arch") == "transformer":
         state = {f"t__{k}": v.detach().cpu().numpy()
                  for k, v in p["module"].state_dict().items()}
@@ -484,8 +500,8 @@ def save_weights(p, chars):
         np.savez(path, **p, chars=np.array(chars, dtype=object))
 
 
-def load_weights():
-    d = np.load(os.path.join(HERE, WEIGHTS_FILE), allow_pickle=True)
+def load_weights(path=None):
+    d = np.load(_resolve_out(path), allow_pickle=True)
     chars = list(d["chars"])
     arch = str(d["arch"]) if "arch" in d.files else "mlp"
     if arch == "transformer":
@@ -531,12 +547,13 @@ def cmd_prepare(args):
     text, paths = load_corpus(args.src)
     chars, stoi, itos = build_vocab(text)
     man = data_manifest(text, paths, chars)
-    write_colophon(man, training=None)
+    json_path = colophon_json_path(_resolve_out(args.out))
+    write_colophon(man, training=None, path=json_path)
     print(json.dumps({k: man[k] for k in
           ("num_files", "num_characters", "vocab_size", "sha256",
            "openness_class_token_counts")}, indent=2))
     print("\nknowledge scope:\n  " + man["knowledge_scope"])
-    print(f"\nwrote {COLOPHON_FILE} (data section; train to fill the rest)")
+    print(f"\nwrote {os.path.basename(json_path)} (data section; train to fill the rest)")
 
 
 def _train_from_args(args):
@@ -549,11 +566,13 @@ def _train_from_args(args):
 
 def cmd_train(args):
     text, paths, chars, stoi, itos, p, man = _train_from_args(args)
-    save_weights(p, chars)
+    weights_path = _resolve_out(args.out)
+    json_path = colophon_json_path(weights_path)
+    save_weights(p, chars, path=weights_path)
     dman = data_manifest(text, paths, chars)
-    write_colophon(dman, training=man)
+    write_colophon(dman, training=man, path=json_path)
     print("\ntraining section:\n" + json.dumps(man, indent=2))
-    print(f"saved {WEIGHTS_FILE} + {COLOPHON_FILE}")
+    print(f"saved {os.path.basename(weights_path)} + {os.path.basename(json_path)}")
 
 
 def cmd_demo(args):
@@ -585,15 +604,17 @@ def cmd_demo(args):
 
     print_scorecard()
 
-    save_weights(p, chars)
+    weights_path = _resolve_out(args.out)
+    json_path = colophon_json_path(weights_path)
+    save_weights(p, chars, path=weights_path)
     dman = data_manifest(text, paths, chars)
-    write_colophon(dman, training=man)
-    print(f"\nsaved {WEIGHTS_FILE} + {COLOPHON_FILE} "
+    write_colophon(dman, training=man, path=json_path)
+    print(f"\nsaved {os.path.basename(weights_path)} + {os.path.basename(json_path)} "
           "(the model's own colophon: data + training + scorecard)")
 
 
 def cmd_generate(args):
-    p, chars = load_weights()
+    p, chars = load_weights(path=args.npz)
     stoi = {c: i for i, c in enumerate(chars)}
     itos = {i: c for c, i in stoi.items()}
     K = _infer_K(p)
@@ -607,6 +628,12 @@ def main():
                     help="directory of OSAI-index .yaml files (default: bundled sample)")
     ap.add_argument("--steps", type=int, default=6000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out", default=None,
+                    help="weights output path for prepare/train/demo (default: "
+                         "colophon.npz beside this file). Use e.g. `--out elements.npz` "
+                         "to train a second model -- like the periodic-table teaching "
+                         "corpus -- without clobbering the flagship one. The paired "
+                         "colophon.json is derived from this (elements.npz -> elements.json).")
     ap.add_argument("--arch", choices=["mlp", "transformer"], default="mlp",
                     help="model architecture for prepare/train/demo: 'mlp' (default, "
                          "dependency-free NumPy) or 'transformer' (optional, requires "
@@ -619,6 +646,9 @@ def main():
     g = sub.add_parser("generate")
     g.add_argument("--prompt", default="weights_basemodel:")
     g.add_argument("--n", type=int, default=240)
+    g.add_argument("--npz", default=None,
+                   help="weights file to generate from (default: colophon.npz). "
+                        "Point at e.g. elements.npz to sample the teaching model.")
 
     args = ap.parse_args()
     {"prepare": cmd_prepare, "train": cmd_train,
