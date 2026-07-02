@@ -60,6 +60,12 @@ python colophon.py generate --prompt "weights_basemodel:"
 Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand:
 `python colophon.py --src ./osai --steps 8000 demo`.
 
+`demo`'s sample generation and its IN/OUT confidence prompts are hardcoded to
+the OSAI-index schema (keys like `weights_basemodel:`, `datasheet:`,
+`licenses:`). On a `--src` corpus that doesn't use that schema, `demo` prints a
+warning instead of silently mislabeling in-corpus text as off-map -- use
+`marginalia.py`'s live inspector for other corpora instead.
+
 Alternatively, install it as a package and use the `colophon` console command:
 
 ```bash

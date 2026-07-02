@@ -25,7 +25,9 @@ Subcommands:
   prepare  Build the corpus + write colophon.json (data section) and print scope.
   train    Train from scratch; save colophon.npz weights + colophon.json.
   demo     Train (fast), then show generation, in- vs out-of-distribution
-           confidence, and the OSAI 14-dimension openness scorecard.
+           confidence, and the OSAI 14-dimension openness scorecard. Its
+           example prompts assume the OSAI-index schema; on a --src that
+           doesn't use it, demo warns instead of mislabeling in-corpus text.
 
 Usage:
   python colophon.py demo                       # runs end-to-end on bundled data
@@ -650,6 +652,18 @@ OUT_DIST = [
     "\u65e5\u672c\u8a9e\u3067\u66f8\u3044\u3066\u304f\u3060\u3055\u3044",  # Japanese
 ]
 
+# Literal fragments of the OSAI-index schema (both the bundled sample's
+# flattened keys, e.g. `availability_weights_basemodel_class:`, and the real
+# index's nested form, e.g. `weights_basemodel:`) that IN_DIST/OUT_DIST and the
+# demo's sample generation assume are meaningful. A corpus with none of these
+# isn't OSAI-shaped, so those prompts can't be trusted to read as in-distribution.
+_OSAI_SCHEMA_MARKERS = ("weights_basemodel", "datasheet", "licenses",
+                        "availability_", "documentation_")
+
+
+def _looks_like_osai_corpus(text: str) -> bool:
+    return any(marker in text for marker in _OSAI_SCHEMA_MARKERS)
+
 
 def cmd_prepare(args):
     text, paths = load_corpus(args.src)
@@ -688,6 +702,16 @@ def cmd_demo(args):
     K = man["context_length_K"]
     print(f"\ntrained {man['parameters']} params in "
           f"{man['wall_clock_seconds']}s, final loss {man['final_loss']:.4f}")
+
+    if not _looks_like_osai_corpus(text):
+        print("\n  NOTE: demo's sample generation and its IN/OUT confidence prompts")
+        print("  below are hardcoded to the OSAI-index schema (keys like")
+        print("  'weights_basemodel:', 'datasheet:', 'licenses:'), which this --src")
+        print("  corpus doesn't appear to use -- so the IN/OUT labels below may not")
+        print("  reflect true in- vs out-of-distribution behavior for THIS corpus.")
+        print("  demo is OSAI-oriented; for this corpus, use marginalia.py instead --")
+        print("  its live inspector reads entropy/off-map signals for any prompt you")
+        print("  type, with no hardcoded assumption about the corpus's schema.")
 
     print("\n--- generation from an in-distribution prompt "
           "(the model's native world) ---")
@@ -750,7 +774,10 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("train")
-    sub.add_parser("demo")
+    sub.add_parser("demo", help="train, then show generation + in/out-of-distribution "
+                    "confidence + scorecard. Its example prompts assume the OSAI-index "
+                    "schema; on a --src that doesn't use it, demo warns instead of "
+                    "mislabeling in-corpus text as off-map -- use marginalia.py instead.")
     g = sub.add_parser("generate")
     g.add_argument("--prompt", default="weights_basemodel:")
     g.add_argument("--n", type=int, default=240)
