@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "colophon"
 version = "0.1.0"
-description = "A ~45K-parameter character language model in pure NumPy that ships its own colophon."
+description = "A ~45-52K-parameter character language model in pure NumPy that ships its own colophon."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "schmug" }]

@@ -7,9 +7,9 @@ rough edges are load-bearing.
 
 ## What this is (one paragraph)
 
-`Colophon` is a ~45K-parameter character language model trained from scratch in
-pure NumPy on the European Open Source AI Index (a CC-BY database scoring AI
-systems across 14 openness dimensions). A colophon is a book's note on how it was
+`Colophon` is a ~45–52K-parameter (vocab grows with the corpus) character
+language model trained from scratch in pure NumPy on the European Open Source
+AI Index (a CC-BY database scoring AI systems across 14 openness dimensions). A colophon is a book's note on how it was
 made; this model is named for that and embodies it — it emits a `colophon.json`
 describing its own data, training, and openness grades. It is a **demonstrator,
 not a chatbot**: its value is that every property people normally *estimate* about
@@ -62,8 +62,8 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 - `test_colophon.py` — stdlib `unittest` + NumPy only. Finite-difference gradient
   check on the manual backprop, the off-map/unknown-char signal, and the unified
   `colophon.json` contract. Run: `python -m unittest test_colophon`.
-- `marginalia.py` — the live inspection UI (item #1 of the former "Open work"
-  list). Stdlib-only `http.server` + a single vanilla-JS page; loads a trained
+- `marginalia.py` — the live inspection UI.
+  Stdlib-only `http.server` + a single vanilla-JS page; loads a trained
   `colophon.npz` and layers a layperson read over a maximal white-box inspector.
   Layperson layer: a `confidence_readout()` headline (entropy reframed as
   `confidence% = (1 − entropy) × 100` + a plain-English verdict, computed
@@ -89,9 +89,13 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 
 ## Design intent — do NOT "fix" these
 
-- **Pure NumPy, single hidden layer, by choice.** No PyTorch/MLX. The point is
-  that the model, gradients, and optimizer are auditable by eye. Keep it
-  dependency-free unless a task explicitly asks to scale up.
+- **The NumPy MLP is the default and the auditable reference, by choice.** The
+  point is that the model, gradients, and optimizer are auditable by eye. A
+  transformer variant exists (`--arch transformer`, torch lazily imported, #11)
+  because the architecture was always meant to be swappable — it changes
+  capability, not the argument. But torch stays opt-in only: never imported on
+  the default path, never a hard dependency (`requirements.txt` is numpy only),
+  and Marginalia stays stdlib-only.
 - **It overfits the tiny sample. That's on-theme.** Don't add regularization to
   "improve" the 3-file demo; the fix is more data (the real index), not hiding it.
 - **The entropy-fooled-by-Japanese result is a feature.** On the 3-file *sample*
@@ -102,8 +106,6 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   chars), not the entropy number. Either way the core lesson holds: confidence
   under-reads OOD; you need a categorical off-map signal alongside it. Keep it
   visible in any UI.
-- **Architecture is deliberately swappable.** A transformer block is a drop-in
-  upgrade; it changes capability, not the argument.
 
 ## Constraints / environment notes
 
@@ -115,30 +117,17 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 
 ## Open work (rough priority)
 
-Nothing tracked — the original three items (transformer option, full-index run,
-`pip install -e .`) have all shipped; see Done below.
+Nothing tracked — the original items have all shipped. One line each; the
+details live in the Status section, the file map, and git history:
 
-Done: **full-index run** — trained on the real index (196 files, 579,109 chars,
-vocab 98, 51,986 params, loss ~0.64) and captured a clean in/out-of-dist spread;
-figures live in the Status section and README "Measured on the real index".
-Done: **transformer option** — `--arch transformer` (torch, lazily imported;
-`prepare`/`train`/`demo` accept it, `generate` reads the arch back from
-`colophon.npz`). The NumPy MLP stays the default and the auditable reference (#11).
-Done: **pip install -e .** — packaging with a `colophon` console entrypoint,
-filed as #7 and shipped in #9.
-Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
-and the entropy/off-map signals.
-Done: **Marginalia** — the live inspection UI (`marginalia.py`, stdlib-only
-`http.server` + a single-page frontend) layers a layperson confidence readout
-(entropy reframed as a `confidence%` headline + plain-English verdict, raw
-entropy still shown for audit; off-map overrides the number on OOD prompts), an
-off-map flag, a sampled continuation, and a literal source-in-training-data
-panel (`find_source_echo()`) over a five-region white-box inspector:
-per-character entropy heatmap, literal K-char context window, occlusion-based
-context saliency (`context_saliency()`), a top-k next-char inspector with the
-ground-truth char's rank, session aggregates, and the OSAI scorecard. Framed
-throughout as "the real version of what black-box LLM tools fake". Backed by
-`colophon.inspect_prompt()` / `context_saliency()` / `prompt_confidence()`.
+- **Full-index run** — 196 files, 579,109 chars, vocab 98, 51,986 params, loss
+  ~0.64; figures in Status and README "Measured on the real index" (#14).
+- **Transformer option** — `--arch transformer` (torch, lazily imported);
+  `generate` reads the arch back from `colophon.npz` (#11).
+- **Packaging** — `pip install -e .` with a `colophon` console entrypoint (#9).
+- **Tests** — `test_colophon.py` + `test_marginalia.py`; see file map.
+- **Marginalia** — the live inspection UI; full description in the file map
+  (#10, #17, #19, #20, #24).
 
 ## The print-shop family (future naming)
 
@@ -147,7 +136,7 @@ the openness pitch:
 
 - **Colophon** — the model / artifact (this repo).
 - **Errata** — the eval + error-analysis report (what it got wrong, published).
-- **Marginalia** — the live inspection UI (item 1 above).
+- **Marginalia** — the live inspection UI (shipped; see file map).
 - **Incipit** — a prompt / inference front-end (a book's opening words; the
   complement of a colophon).
 - **Imprint** — the training harness, if it's ever split out.
