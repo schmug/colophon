@@ -215,6 +215,14 @@ def context_saliency(p, stoi, itos, K, prompt, pos, n=CONTINUATION_LEN, seed=0):
                                      n_continuation=n, seed=seed)
 
 
+def embeddings_payload(p, itos, n_components=2, top_k=5):
+    """Thin wrapper over colophon.embedding_projection for the /api/embeddings
+    route. `chars` is recovered from itos in index order, which matches the
+    row order of the embedding table `C` it projects."""
+    chars = [itos[i] for i in range(len(itos))]
+    return colophon.embedding_projection(p, chars, n_components=n_components, top_k=top_k)
+
+
 INDEX_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -303,6 +311,9 @@ INDEX_HTML = """<!DOCTYPE html>
   th, td { border: 1px solid #8884; padding: .3rem .5rem; text-align: left; }
   td.open { color: #2a6; } td.partial { color: #c90; } td.closed { color: #d33; }
   .error { color: #d33; }
+  #embed-plot svg { max-width: 100%; height: auto; border: 1px solid #8884; border-radius: 6px; }
+  #embed-plot text { cursor: pointer; fill: currentColor; }
+  #embed-plot text:hover, #embed-plot text.selected { fill: #06f; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -380,6 +391,21 @@ not guessed at in JavaScript. Pick a corpus:</p>
 </div>
 
 <div class="panel" id="aggregates"><div class="muted">session signals</div></div>
+
+<div class="panel" id="embed-panel">
+  <h2>Embedding space -- the model's own similarity map</h2>
+  <div class="muted">Every learned character embedding, PCA-projected to 2D so the
+  <em>entire</em> table fits on screen -- not a sample of it. Click a character to
+  see its nearest neighbors by cosine similarity, read from the full un-projected
+  matrix.</div>
+  <div id="embed-plot">&nbsp;</div>
+  <div class="muted" id="embed-variance">&nbsp;</div>
+  <div id="embed-neighbors" class="muted">click a character to see its nearest neighbors</div>
+  <div class="bb">Closed API here: embedding tables are never exposed. Tools like
+  TensorBoard's projector exist because their tables don't fit on screen and have
+  to be sampled/approximated (t-SNE, UMAP); here the whole table does, so the plot
+  is exact, not a fit.</div>
+</div>
 
 <div class="panel" id="scorecard-panel">
   <h2>What this model does and doesn't disclose</h2>
@@ -631,6 +657,76 @@ async function fetchSaliency() {
   } catch (e) { /* saliency is best-effort; heatmap already rendered */ }
 }
 
+const EMBED_W = 480, EMBED_H = 480, EMBED_PAD = 24;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function renderEmbedNeighbors(pt) {
+  const el = $('embed-neighbors'); el.innerHTML = '';
+  const label = document.createElement('div');
+  label.textContent = `nearest neighbors of '${pt.display}' (by cosine similarity):`;
+  el.appendChild(label);
+  const max = Math.max(...pt.neighbors.map(n => n.similarity), 1e-9);
+  pt.neighbors.forEach(n => {
+    const row = document.createElement('div'); row.className = 'barrow';
+    const lab = document.createElement('span'); lab.className = 'lab'; lab.textContent = n.display;
+    const bar = document.createElement('span'); bar.className = 'bar';
+    bar.style.width = (100 * Math.max(0, n.similarity) / max) + 'px';
+    const val = document.createElement('span'); val.className = 'muted';
+    val.textContent = n.similarity.toFixed(3);
+    row.append(lab, bar, val); el.appendChild(row);
+  });
+}
+
+function renderEmbeddings(data) {
+  const container = $('embed-plot'); container.innerHTML = '';
+  const pts = data.points;
+  if (!pts.length) { container.textContent = 'no embeddings'; return; }
+  const xs = pts.map(pt => pt.coords[0]), ys = pts.map(pt => pt.coords[1]);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const sx = x => EMBED_PAD + (xMax === xMin ? (EMBED_W - 2 * EMBED_PAD) / 2 :
+    (x - xMin) / (xMax - xMin) * (EMBED_W - 2 * EMBED_PAD));
+  const sy = y => EMBED_H - EMBED_PAD - (yMax === yMin ? (EMBED_H - 2 * EMBED_PAD) / 2 :
+    (y - yMin) / (yMax - yMin) * (EMBED_H - 2 * EMBED_PAD));
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${EMBED_W} ${EMBED_H}`);
+  pts.forEach(pt => {
+    const text = document.createElementNS(SVG_NS, 'text');
+    text.setAttribute('x', sx(pt.coords[0]));
+    text.setAttribute('y', sy(pt.coords[1]));
+    text.setAttribute('font-size', '13');
+    text.setAttribute('text-anchor', 'middle');
+    text.textContent = pt.display;
+    text.addEventListener('click', () => {
+      svg.querySelectorAll('text').forEach(t => t.classList.remove('selected'));
+      text.classList.add('selected');
+      renderEmbedNeighbors(pt);
+    });
+    svg.appendChild(text);
+  });
+  container.appendChild(svg);
+}
+
+function renderEmbedVariance(data) {
+  const pct = data.variance_explained.map(v => (v * 100).toFixed(1) + '%').join(', ');
+  $('embed-variance').textContent =
+    `variance explained by these 2 components: ${pct} of ${data.embed_dim} total ` +
+    `dimensions -- this plot is a lossy 2D shadow of the full embedding space, not the whole thing.`;
+}
+
+async function fetchEmbeddings() {
+  if (!activeMode) return;
+  try {
+    const res = await fetch('/api/embeddings?mode=' + encodeURIComponent(activeMode));
+    const data = await res.json();
+    if (!res.ok) { $('embed-plot').textContent = data.error || 'unavailable'; return; }
+    renderEmbeddings(data);
+    renderEmbedVariance(data);
+    $('embed-neighbors').textContent = 'click a character to see its nearest neighbors';
+  } catch (e) { $('embed-plot').textContent = String(e); }
+}
+
 function renderAnalysis(data) {
   errorEl.textContent = '';
   records = data.records;
@@ -689,6 +785,7 @@ function applyMode(mode) {
   renderExamples(mode);
   errorEl.textContent = '';
   analyze(promptEl.value);
+  fetchEmbeddings();
 }
 
 async function loadModes() {
@@ -819,6 +916,19 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                 try:
                     result = analyze_prompt(p, stoi, itos, K, prompt,
                                             files=cfg.get("files", ()))
+                except Exception as e:
+                    self._send_json(
+                        {"error": f"analysis failed: {e}"}, status=500)
+                    return
+                self._send_json(result)
+            elif parsed.path == "/api/embeddings":
+                qs = urllib.parse.parse_qs(parsed.query)
+                cfg = self._mode_cfg(qs)
+                if cfg is None:
+                    return
+                p, stoi, itos, K = cfg["model"]
+                try:
+                    result = embeddings_payload(p, itos)
                 except Exception as e:
                     self._send_json(
                         {"error": f"analysis failed: {e}"}, status=500)

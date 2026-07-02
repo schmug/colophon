@@ -200,6 +200,19 @@ class ScorecardPassthrough(unittest.TestCase):
         self.assertEqual(M.colophon.scorecard_section(), C.scorecard_section())
 
 
+class EmbeddingsWrapper(unittest.TestCase):
+    def setUp(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, stoi, itos = C.build_vocab(text)
+        self.stoi, self.itos, self.chars = stoi, itos, chars
+        self.p = C.init_params(len(chars), 8, 4, 16, seed=0)
+
+    def test_wrapper_matches_colophon(self):
+        got = M.embeddings_payload(self.p, self.itos)
+        want = C.embedding_projection(self.p, self.chars)
+        self.assertEqual(got, want)
+
+
 def _make_model():
     """A small but real model tuple, as a mode config expects it."""
     text, _ = C.load_corpus(C.DEFAULT_SRC)
@@ -309,12 +322,37 @@ class HandlerRouting(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("error", json.loads(body))
 
+    def test_embeddings_route_ok(self):
+        status, headers, body = self.server.get("/api/embeddings")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+        data = json.loads(body)
+        self.assertIn("points", data)
+        self.assertIn("variance_explained", data)
+        self.assertIn("embed_dim", data)
+        self.assertEqual(len(data["variance_explained"]), 2)
+        point = data["points"][0]
+        for key in ("char", "display", "coords", "neighbors"):
+            self.assertIn(key, point)
+        self.assertEqual(len(point["coords"]), 2)
+
 
 class HandlerDegraded(unittest.TestCase):
     def test_analyze_503_when_no_model(self):
         server = _ServerFixture(_make_modes(None))
         try:
             status, headers, body = server.get("/api/analyze?prompt=hi")
+            self.assertEqual(status, 503)
+            self.assertEqual(headers["Content-Type"],
+                             "application/json; charset=utf-8")
+            self.assertIn("error", json.loads(body))
+        finally:
+            server.close()
+
+    def test_embeddings_503_when_no_model(self):
+        server = _ServerFixture(_make_modes(None))
+        try:
+            status, headers, body = server.get("/api/embeddings")
             self.assertEqual(status, 503)
             self.assertEqual(headers["Content-Type"],
                              "application/json; charset=utf-8")
@@ -356,7 +394,8 @@ class IndexHtmlContract(unittest.TestCase):
         html = M.INDEX_HTML
         for marker in ('id="heatmap"', 'id="rail"', 'id="saliency"',
                        'id="inspector"', 'id="aggregates"', 'id="scorecard"',
-                       'id="bb-banner"', 'id="sidebar"', 'id="tape"'):
+                       'id="bb-banner"', 'id="sidebar"', 'id="tape"',
+                       'id="embed-plot"'):
             self.assertIn(marker, html)
 
     def test_calls_both_apis(self):
@@ -364,10 +403,16 @@ class IndexHtmlContract(unittest.TestCase):
         self.assertIn("/api/analyze", html)
         self.assertIn("/api/saliency", html)
         self.assertIn("/api/modes", html)
+        self.assertIn("/api/embeddings", html)
 
     def test_no_external_dependencies(self):
+        # The SVG XML namespace URI is a DOM API constant required by
+        # createElementNS, not a fetched resource -- carve it out same as the
+        # local server's own http://127.0.0.1.
         html = M.INDEX_HTML
-        self.assertNotIn("http://", html.replace("http://127.0.0.1", ""))
+        stripped = (html.replace("http://127.0.0.1", "")
+                        .replace("http://www.w3.org/2000/svg", ""))
+        self.assertNotIn("http://", stripped)
         self.assertNotIn("https://", html)
         self.assertNotIn("cdn", html.lower())
 
@@ -412,6 +457,11 @@ class ModeRouting(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)["pos"], 3)
 
+    def test_embeddings_routes_to_requested_mode(self):
+        status, _, body = self.server.get("/api/embeddings?mode=elements")
+        self.assertEqual(status, 200)
+        self.assertIn("points", json.loads(body))
+
     def test_no_mode_uses_default(self):
         status, _, body = self.server.get("/api/analyze?prompt=weights")
         self.assertEqual(status, 200)
@@ -419,6 +469,11 @@ class ModeRouting(unittest.TestCase):
 
     def test_unknown_mode_400(self):
         status, _, body = self.server.get("/api/analyze?mode=bogus&prompt=x")
+        self.assertEqual(status, 400)
+        self.assertIn("error", json.loads(body))
+
+    def test_embeddings_unknown_mode_400(self):
+        status, _, body = self.server.get("/api/embeddings?mode=bogus")
         self.assertEqual(status, 400)
         self.assertIn("error", json.loads(body))
 
@@ -434,6 +489,9 @@ class ModeDegraded(unittest.TestCase):
         server = _ServerFixture(modes, default_mode="osai")
         try:
             status, _, body = server.get("/api/analyze?mode=elements&prompt=x")
+            self.assertEqual(status, 503)
+            self.assertIn("error", json.loads(body))
+            status, _, body = server.get("/api/embeddings?mode=elements")
             self.assertEqual(status, 503)
             self.assertIn("error", json.loads(body))
             _, _, modes_body = server.get("/api/modes")

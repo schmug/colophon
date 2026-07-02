@@ -160,10 +160,13 @@ weights: a **confidence heatmap** (each character tinted by next-char entropy),
 the **literal K-character context window** the model saw (with the pad horizon it
 cannot see past), **occlusion-based context saliency** (which remembered
 characters actually drove the prediction), a **top-k next-char inspector** with
-where the real next character ranked, and the OSAI **openness scorecard**. It is
-framed as the honest counterpart to black-box "observability" tools: a hosted API
-exposes none of this, and where a tool like glassboxllm has to *simulate*
-per-token confidence, Colophon reads it straight from the weights.
+where the real next character ranked, an **embedding-space panel** (the entire
+character embedding table, PCA-projected to 2D so it fits on screen exactly,
+with click-to-see nearest neighbors by cosine similarity), and the OSAI
+**openness scorecard**. It is framed as the honest counterpart to black-box
+"observability" tools: a hosted API exposes none of this, and where a tool
+like glassboxllm has to *simulate* per-token confidence, Colophon reads it
+straight from the weights.
 
 ### Teaching mode — a corpus you can grade by eye
 
