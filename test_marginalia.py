@@ -58,6 +58,74 @@ class AnalyzePrompt(unittest.TestCase):
         self.assertEqual(result["unknown_chars"], [])
         self.assertFalse(result["off_map"])
 
+    def test_source_absent_when_no_files_given(self):
+        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, self.native, n=5)
+        self.assertEqual(result["source"], {"matched": False})
+
+    def test_source_uses_find_source_echo(self):
+        files = [("f.yaml", self.native)]
+        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, self.native, files=files, n=5)
+        self.assertEqual(result["source"], M.find_source_echo(files, self.native))
+        self.assertTrue(result["source"]["matched"])
+
+
+class FindSourceEcho(unittest.TestCase):
+    def setUp(self):
+        self.files = [("a.yaml", "0123456789foobarbaz9876543210"),
+                      ("b.yaml", "another entry\nsecond line here\n")]
+
+    def test_exact_match_reports_correct_file_and_line(self):
+        result = M.find_source_echo(self.files, "second line here")
+        self.assertTrue(result["matched"])
+        self.assertEqual(result["file"], "b.yaml")
+        self.assertEqual(result["line"], 2)
+        self.assertEqual(result["match"], "second line here")
+
+    def test_longest_suffix_backoff(self):
+        # The leading "xyz " isn't in the corpus, but the trailing
+        # "foobarbaz" is -- the search must back off to find it.
+        result = M.find_source_echo(self.files, "xyz foobarbaz")
+        self.assertTrue(result["matched"])
+        self.assertEqual(result["match"], "foobarbaz")
+        self.assertEqual(result["file"], "a.yaml")
+
+    def test_floor_excludes_short_suffixes(self):
+        result = M.find_source_echo(self.files, "baz", floor=4)
+        self.assertFalse(result["matched"])
+
+    def test_no_match_reports_absent(self):
+        result = M.find_source_echo(self.files, "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+        self.assertEqual(result, {"matched": False})
+
+    def test_highlight_offsets_bracket_the_match(self):
+        result = M.find_source_echo(self.files, "foobarbaz", context=5)
+        self.assertEqual(result["pre"], "56789")
+        self.assertEqual(result["match"], "foobarbaz")
+        self.assertEqual(result["post"], "98765")
+        self.assertEqual(result["line"], 1)
+
+    def test_match_never_spans_files(self):
+        # A suffix straddling the join point of two files must not match --
+        # each file is searched independently.
+        files = [("x.yaml", "endsInFOO"), ("y.yaml", "BARstartsHere")]
+        result = M.find_source_echo(files, "FOOBAR", floor=4)
+        self.assertFalse(result["matched"])
+
+
+class CorpusHelpers(unittest.TestCase):
+    def test_load_corpus_files_reads_sample_data(self):
+        files = M.load_corpus_files(C.DEFAULT_SRC)
+        self.assertTrue(files)
+        names = {name for name, _ in files}
+        self.assertTrue(all(name.endswith((".yaml", ".yml")) for name in names))
+
+    def test_corpus_sha256_matches_colophon_data_manifest(self):
+        files = M.load_corpus_files(C.DEFAULT_SRC)
+        text, paths = C.load_corpus(C.DEFAULT_SRC)
+        chars, _, _ = C.build_vocab(text)
+        manifest = C.data_manifest(text, paths, chars)
+        self.assertEqual(M.corpus_sha256(files), manifest["sha256"])
+
 
 class ConfidenceReadout(unittest.TestCase):
     """The layperson-facing translation of the raw entropy signal. It must be

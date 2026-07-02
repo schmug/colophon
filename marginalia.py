@@ -20,13 +20,16 @@ Usage:
 """
 
 from __future__ import annotations
-import argparse, http.server, json, os, urllib.parse
+import argparse, glob, hashlib, http.server, json, os, urllib.parse
 import numpy as np
 
 import colophon
 
 MAX_PROMPT_LEN = 500     # bound the per-keystroke forward-pass cost
 CONTINUATION_LEN = 80    # sampled chars shown after the typed prompt
+SOURCE_SUFFIX_FLOOR = 4  # shortest suffix worth searching for (else everything matches)
+SOURCE_SUFFIX_CAP = 64   # longest suffix worth searching for (bounds per-keystroke cost)
+SOURCE_CONTEXT_CHARS = 40  # chars of corpus context shown on each side of a match
 
 
 REQUIRED_KEYS = ("chars", "C", "W1", "b1", "W2", "b2")
@@ -93,11 +96,60 @@ def confidence_readout(entropy, unknown, has_prompt=True):
             "verdict": f"{pct}% sure. {msg}"}
 
 
-def analyze_prompt(p, stoi, itos, K, prompt, n=CONTINUATION_LEN, seed=0):
+def load_corpus_files(src_dir: str):
+    """Mirrors colophon.load_corpus()'s file discovery but keeps each file's
+    raw text separate (never PAD-joined), so the suffix search in
+    find_source_echo() can never match across an entry boundary."""
+    paths = sorted(glob.glob(os.path.join(src_dir, "*.yaml")) +
+                   glob.glob(os.path.join(src_dir, "*.yml")))
+    files = []
+    for path in paths:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            files.append((os.path.basename(path), f.read()))
+    return files
+
+
+def corpus_sha256(files):
+    """The same PAD-joined hash colophon.data_manifest() records in
+    colophon.json, computed from the per-file texts load_corpus_files()
+    already read (no re-globbing, no re-reading the source directory)."""
+    text = ("\n" + colophon.PAD + "\n").join(text for _, text in files)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def find_source_echo(files, prompt, floor=SOURCE_SUFFIX_FLOOR, cap=SOURCE_SUFFIX_CAP,
+                      context=SOURCE_CONTEXT_CHARS):
+    """Literal longest-matching-suffix search over `files` (a list of
+    (name, text) pairs, one per corpus entry). Backs off from the longest
+    suffix of `prompt` (capped at `cap` chars) down to `floor` chars, and
+    returns the first hit -- the longest suffix that appears verbatim in any
+    file, searched file-by-file so a match can never span an entry boundary.
+    Returns {"matched": False} if nothing >= floor chars matches."""
+    max_len = min(len(prompt), cap)
+    for length in range(max_len, floor - 1, -1):
+        suffix = prompt[-length:]
+        for name, text in files:
+            idx = text.find(suffix)
+            if idx == -1:
+                continue
+            line = text.count("\n", 0, idx) + 1
+            return {
+                "matched": True,
+                "file": name,
+                "line": line,
+                "pre": text[max(0, idx - context):idx],
+                "match": suffix,
+                "post": text[idx + length:idx + length + context],
+            }
+    return {"matched": False}
+
+
+def analyze_prompt(p, stoi, itos, K, prompt, files=(), n=CONTINUATION_LEN, seed=0):
     """The one function the HTTP layer calls: entropy + off-map signal from
     prompt_confidence(), a sampled continuation from generate(), and a
-    layperson confidence readout. The signals are colophon.py's own functions,
-    called as-is; confidence_readout() only reframes entropy for display."""
+    source-echo match from find_source_echo(), and a layperson confidence
+    readout. The first two are colophon.py's own functions, called as-is;
+    confidence_readout() only reframes entropy for display."""
     entropy, unknown = colophon.prompt_confidence(p, stoi, K, prompt)
     full = colophon.generate(p, stoi, itos, K, prompt=prompt, n=n, seed=seed)
     return {
@@ -107,6 +159,7 @@ def analyze_prompt(p, stoi, itos, K, prompt, n=CONTINUATION_LEN, seed=0):
         "off_map": bool(unknown),
         "continuation": full[len(prompt):],
         **confidence_readout(entropy, unknown, has_prompt=bool(prompt)),
+        "source": find_source_echo(files, prompt),
     }
 
 
@@ -189,6 +242,12 @@ signal is computed by the model's own weights, not guessed at in JavaScript.</p>
   <div class="muted" style="margin-top:.35rem">sampled from the model's own weights (a little randomness, so it varies)</div>
 </div>
 
+<div class="panel">
+  <div class="muted">source in training data (literal longest-suffix match, ground truth):</div>
+  <div id="source-label" class="muted">&nbsp;</div>
+  <div id="source-snippet" class="continuation"></div>
+</div>
+
 <div class="panel" id="scorecard-panel">
   <h2>What this model does and doesn't disclose</h2>
   <p class="muted" style="margin:.2rem 0 .6rem">The openness index scores AI systems
@@ -207,6 +266,8 @@ const confFill = document.getElementById('conf-fill');
 const entropyVal = document.getElementById('entropy-val');
 const offmapEl = document.getElementById('offmap');
 const continuationEl = document.getElementById('continuation');
+const sourceLabelEl = document.getElementById('source-label');
+const sourceSnippetEl = document.getElementById('source-snippet');
 const errorEl = document.getElementById('error');
 
 const VERDICT_LEVELS = ['confident', 'unsure', 'struggling', 'off-map', 'none'];
@@ -238,6 +299,29 @@ function renderAnalysis(data) {
   contSpan.textContent = data.continuation;
   continuationEl.appendChild(promptSpan);
   continuationEl.appendChild(contSpan);
+
+  renderSource(data.source);
+}
+
+function renderSource(source) {
+  sourceSnippetEl.innerHTML = '';
+  if (!source || !source.matched) {
+    sourceLabelEl.textContent = 'no match -- this context does not appear verbatim in the training corpus';
+    return;
+  }
+  sourceLabelEl.textContent = `${source.file}:${source.line}`;
+  const preSpan = document.createElement('span');
+  preSpan.className = 'prompt-part';
+  preSpan.textContent = source.pre;
+  const matchSpan = document.createElement('span');
+  matchSpan.className = 'cont-part';
+  matchSpan.textContent = source.match;
+  const postSpan = document.createElement('span');
+  postSpan.className = 'prompt-part';
+  postSpan.textContent = source.post;
+  sourceSnippetEl.appendChild(preSpan);
+  sourceSnippetEl.appendChild(matchSpan);
+  sourceSnippetEl.appendChild(postSpan);
 }
 
 async function analyze(prompt) {
@@ -307,10 +391,12 @@ analyze('');
 """
 
 
-def make_handler(model):
+def make_handler(model, files=()):
     """model is (p, stoi, itos, K) if a trained colophon.npz was found, else
     None -- the scorecard and page still serve either way; /api/analyze
-    reports 503 until a model exists."""
+    reports 503 until a model exists. files is the corpus loaded by
+    load_corpus_files(), used for the source-echo panel; an empty corpus just
+    makes every prompt report as absent from the training data."""
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def _send(self, status, content_type, body: bytes):
@@ -340,7 +426,7 @@ def make_handler(model):
                 prompt = qs.get("prompt", [""])[0][:MAX_PROMPT_LEN]
                 p, stoi, itos, K = model
                 try:
-                    result = analyze_prompt(p, stoi, itos, K, prompt)
+                    result = analyze_prompt(p, stoi, itos, K, prompt, files=files)
                 except Exception as e:
                     self._send_json(
                         {"error": f"analysis failed: {e}"}, status=500)
@@ -357,6 +443,9 @@ def main():
         description="Marginalia -- live inspection UI for Colophon.")
     ap.add_argument("--npz", default=os.path.join(colophon.HERE, colophon.WEIGHTS_FILE),
                     help="path to a trained colophon.npz (default: bundled location)")
+    ap.add_argument("--src", default=colophon.DEFAULT_SRC,
+                    help="directory of OSAI-index .yaml files for the live "
+                         "source-echo panel (default: bundled sample)")
     ap.add_argument("--host", default="127.0.0.1", help="local-only by default")
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
@@ -371,7 +460,26 @@ def main():
         print(f"warning: could not load model at {args.npz} ({e}) -- entropy/"
               f"off-map will be unavailable; the scorecard and page still work")
 
-    httpd = http.server.HTTPServer((args.host, args.port), make_handler(model))
+    files = load_corpus_files(args.src)
+    if not files:
+        print(f"warning: no .yaml/.yml files found in {args.src} -- the "
+              f"source-echo panel will report every prompt as absent")
+    else:
+        colophon_json_path = os.path.join(colophon.HERE, colophon.COLOPHON_FILE)
+        try:
+            with open(colophon_json_path) as f:
+                recorded_sha = json.load(f).get("data", {}).get("sha256")
+        except (OSError, json.JSONDecodeError):
+            recorded_sha = None
+        if recorded_sha:
+            live_sha = corpus_sha256(files)
+            if live_sha != recorded_sha:
+                print(f"warning: corpus at {args.src} (sha256 {live_sha[:12]}...) "
+                      f"does not match {colophon.COLOPHON_FILE}'s recorded sha256 "
+                      f"({recorded_sha[:12]}...) -- colophon.json is a snapshot; "
+                      f"run `python colophon.py demo` to refresh it")
+
+    httpd = http.server.HTTPServer((args.host, args.port), make_handler(model, files))
     print(f"Marginalia serving at http://{args.host}:{args.port}  (Ctrl+C to stop)")
     try:
         httpd.serve_forever()
