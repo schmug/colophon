@@ -62,6 +62,122 @@ class AnalyzePrompt(unittest.TestCase):
         self.assertEqual(result["unknown_chars"], [])
         self.assertFalse(result["off_map"])
 
+    def test_source_absent_when_no_files_given(self):
+        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, self.native, n=5)
+        self.assertEqual(result["source"], {"matched": False})
+
+    def test_source_uses_find_source_echo(self):
+        files = [("f.yaml", self.native)]
+        result = M.analyze_prompt(self.p, self.stoi, self.itos, self.K, self.native, files=files, n=5)
+        self.assertEqual(result["source"], M.find_source_echo(files, self.native))
+        self.assertTrue(result["source"]["matched"])
+
+
+class FindSourceEcho(unittest.TestCase):
+    def setUp(self):
+        self.files = [("a.yaml", "0123456789foobarbaz9876543210"),
+                      ("b.yaml", "another entry\nsecond line here\n")]
+
+    def test_exact_match_reports_correct_file_and_line(self):
+        result = M.find_source_echo(self.files, "second line here")
+        self.assertTrue(result["matched"])
+        self.assertEqual(result["file"], "b.yaml")
+        self.assertEqual(result["line"], 2)
+        self.assertEqual(result["match"], "second line here")
+
+    def test_longest_suffix_backoff(self):
+        # The leading "xyz " isn't in the corpus, but the trailing
+        # "foobarbaz" is -- the search must back off to find it.
+        result = M.find_source_echo(self.files, "xyz foobarbaz")
+        self.assertTrue(result["matched"])
+        self.assertEqual(result["match"], "foobarbaz")
+        self.assertEqual(result["file"], "a.yaml")
+
+    def test_floor_excludes_short_suffixes(self):
+        result = M.find_source_echo(self.files, "baz", floor=4)
+        self.assertFalse(result["matched"])
+
+    def test_no_match_reports_absent(self):
+        result = M.find_source_echo(self.files, "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+        self.assertEqual(result, {"matched": False})
+
+    def test_highlight_offsets_bracket_the_match(self):
+        result = M.find_source_echo(self.files, "foobarbaz", context=5)
+        self.assertEqual(result["pre"], "56789")
+        self.assertEqual(result["match"], "foobarbaz")
+        self.assertEqual(result["post"], "98765")
+        self.assertEqual(result["line"], 1)
+
+    def test_match_never_spans_files(self):
+        # A suffix straddling the join point of two files must not match --
+        # each file is searched independently.
+        files = [("x.yaml", "endsInFOO"), ("y.yaml", "BARstartsHere")]
+        result = M.find_source_echo(files, "FOOBAR", floor=4)
+        self.assertFalse(result["matched"])
+
+
+class CorpusHelpers(unittest.TestCase):
+    def test_load_corpus_files_reads_sample_data(self):
+        files = M.load_corpus_files(C.DEFAULT_SRC)
+        self.assertTrue(files)
+        names = {name for name, _ in files}
+        self.assertTrue(all(name.endswith((".yaml", ".yml")) for name in names))
+
+    def test_corpus_sha256_matches_colophon_data_manifest(self):
+        files = M.load_corpus_files(C.DEFAULT_SRC)
+        text, paths = C.load_corpus(C.DEFAULT_SRC)
+        chars, _, _ = C.build_vocab(text)
+        manifest = C.data_manifest(text, paths, chars)
+        self.assertEqual(M.corpus_sha256(files), manifest["sha256"])
+
+
+class ConfidenceReadout(unittest.TestCase):
+    """The layperson-facing translation of the raw entropy signal. It must be
+    the INVERSE of entropy (high entropy -> low confidence), must not oversell
+    an off-map prompt, and must not fabricate confidence for an empty prompt."""
+
+    def test_confidence_is_inverse_of_entropy(self):
+        # entropy 0.20 -> 80% sure; entropy 0.85 -> 15% sure.
+        self.assertEqual(M.confidence_readout(0.20, [])["confidence_pct"], 80)
+        self.assertEqual(M.confidence_readout(0.85, [])["confidence_pct"], 15)
+
+    def test_low_entropy_reads_confident(self):
+        r = M.confidence_readout(0.15, [])
+        self.assertEqual(r["confidence_pct"], 85)
+        self.assertEqual(r["verdict_level"], "confident")
+
+    def test_off_map_overrides_and_warns_not_to_trust_number(self):
+        # A fully off-map prompt can still read as moderately "sure" (~41%);
+        # the verdict must flag it and tell the reader to ignore the number.
+        r = M.confidence_readout(0.59, ["日", "本", "語"])
+        self.assertEqual(r["confidence_pct"], 41)
+        self.assertEqual(r["verdict_level"], "off-map")
+        self.assertIn("never seen", r["verdict"].lower())
+
+    def test_empty_prompt_has_no_confidence_number(self):
+        r = M.confidence_readout(0.0, [], has_prompt=False)
+        self.assertIsNone(r["confidence_pct"])
+        self.assertEqual(r["verdict_level"], "none")
+
+    def test_analyze_prompt_includes_readout(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, stoi, itos = C.build_vocab(text)
+        p = C.init_params(len(chars), 8, 4, 16, seed=0)
+        result = M.analyze_prompt(p, stoi, itos, 4, text[:40], n=5)
+        self.assertEqual(result["confidence_pct"],
+                         round((1.0 - result["entropy"]) * 100))
+        self.assertIn("verdict", result)
+        self.assertIn(result["verdict_level"],
+                      {"confident", "unsure", "struggling", "off-map"})
+
+    def test_analyze_empty_prompt_readout_is_neutral(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, stoi, itos = C.build_vocab(text)
+        p = C.init_params(len(chars), 8, 4, 16, seed=0)
+        result = M.analyze_prompt(p, stoi, itos, 4, "", n=5)
+        self.assertIsNone(result["confidence_pct"])
+        self.assertEqual(result["verdict_level"], "none")
+
 
 class SaliencyWrapper(unittest.TestCase):
     def setUp(self):
