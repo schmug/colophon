@@ -127,6 +127,54 @@ class CorpusHelpers(unittest.TestCase):
         self.assertEqual(M.corpus_sha256(files), manifest["sha256"])
 
 
+class ConfidenceReadout(unittest.TestCase):
+    """The layperson-facing translation of the raw entropy signal. It must be
+    the INVERSE of entropy (high entropy -> low confidence), must not oversell
+    an off-map prompt, and must not fabricate confidence for an empty prompt."""
+
+    def test_confidence_is_inverse_of_entropy(self):
+        # entropy 0.20 -> 80% sure; entropy 0.85 -> 15% sure.
+        self.assertEqual(M.confidence_readout(0.20, [])["confidence_pct"], 80)
+        self.assertEqual(M.confidence_readout(0.85, [])["confidence_pct"], 15)
+
+    def test_low_entropy_reads_confident(self):
+        r = M.confidence_readout(0.15, [])
+        self.assertEqual(r["confidence_pct"], 85)
+        self.assertEqual(r["verdict_level"], "confident")
+
+    def test_off_map_overrides_and_warns_not_to_trust_number(self):
+        # A fully off-map prompt can still read as moderately "sure" (~41%);
+        # the verdict must flag it and tell the reader to ignore the number.
+        r = M.confidence_readout(0.59, ["日", "本", "語"])
+        self.assertEqual(r["confidence_pct"], 41)
+        self.assertEqual(r["verdict_level"], "off-map")
+        self.assertIn("never seen", r["verdict"].lower())
+
+    def test_empty_prompt_has_no_confidence_number(self):
+        r = M.confidence_readout(0.0, [], has_prompt=False)
+        self.assertIsNone(r["confidence_pct"])
+        self.assertEqual(r["verdict_level"], "none")
+
+    def test_analyze_prompt_includes_readout(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, stoi, itos = C.build_vocab(text)
+        p = C.init_params(len(chars), 8, 4, 16, seed=0)
+        result = M.analyze_prompt(p, stoi, itos, 4, text[:40], n=5)
+        self.assertEqual(result["confidence_pct"],
+                         round((1.0 - result["entropy"]) * 100))
+        self.assertIn("verdict", result)
+        self.assertIn(result["verdict_level"],
+                      {"confident", "unsure", "struggling", "off-map"})
+
+    def test_analyze_empty_prompt_readout_is_neutral(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, stoi, itos = C.build_vocab(text)
+        p = C.init_params(len(chars), 8, 4, 16, seed=0)
+        result = M.analyze_prompt(p, stoi, itos, 4, "", n=5)
+        self.assertIsNone(result["confidence_pct"])
+        self.assertEqual(result["verdict_level"], "none")
+
+
 class ScorecardPassthrough(unittest.TestCase):
     def test_scorecard_matches_colophon(self):
         self.assertEqual(M.colophon.scorecard_section(), C.scorecard_section())
