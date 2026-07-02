@@ -12,6 +12,7 @@ would silently rot if the code changed underneath the docs:
 Run: python -m unittest test_colophon    (or: python test_colophon.py)
 """
 
+import os
 import unittest
 import warnings
 import numpy as np
@@ -95,7 +96,9 @@ class DemoSchemaWarning(unittest.TestCase):
 
     def _run_demo(self, src):
         import argparse, contextlib, io, tempfile
-        args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp")
+        # out=None mirrors the CLI default added alongside --out; cmd_demo
+        # resolves it to the standard colophon.npz path (redirected via C.HERE).
+        args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp", out=None)
         buf = io.StringIO()
         with tempfile.TemporaryDirectory() as d:
             orig_here = C.HERE
@@ -233,6 +236,47 @@ class TransformerArch(unittest.TestCase):
         out = C.generate(p2, self.stoi, self.itos, man["context_length_K"],
                           prompt="availability_", n=10, seed=0)
         self.assertTrue(out.startswith("availability_"))
+
+
+class OutPathPlumbing(unittest.TestCase):
+    """--out lets a second corpus (the periodic-table teaching model) train to
+    its own weights + colophon json without clobbering the flagship
+    colophon.npz. save_weights/load_weights must honor an explicit path, and the
+    colophon-json path must derive from the weights path."""
+
+    def setUp(self):
+        self.text, self.paths = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(self.text)
+
+    def test_colophon_json_path_derivation(self):
+        self.assertTrue(C.colophon_json_path("elements.npz").endswith("elements.json"))
+        self.assertTrue(C.colophon_json_path("/a/b/model.npz").endswith("/a/b/model.json"))
+
+    def test_save_and_load_explicit_path(self):
+        import tempfile
+        p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "elements.npz")
+            C.save_weights(p, self.chars, path=path)
+            self.assertTrue(os.path.exists(path))
+            p2, chars2 = C.load_weights(path=path)
+        self.assertEqual(chars2, self.chars)
+        np.testing.assert_array_equal(p2["C"], p["C"])
+
+    def test_two_models_coexist(self):
+        import tempfile
+        p_a = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        p_b = C.init_params(len(self.chars), 8, 4, 16, seed=1)
+        with tempfile.TemporaryDirectory() as d:
+            a, b = os.path.join(d, "colophon.npz"), os.path.join(d, "elements.npz")
+            C.save_weights(p_a, self.chars, path=a)
+            C.save_weights(p_b, self.chars, path=b)
+            self.assertTrue(os.path.exists(a) and os.path.exists(b))
+            pa2, _ = C.load_weights(path=a)
+            pb2, _ = C.load_weights(path=b)
+        # The two files stayed independent -- writing b did not touch a.
+        self.assertFalse(np.array_equal(pa2["C"], pb2["C"]))
+        np.testing.assert_array_equal(pa2["C"], p_a["C"])
 
 
 class InspectPrompt(unittest.TestCase):
