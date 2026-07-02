@@ -83,25 +83,34 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   `colophon.json` contract. Run: `python -m unittest test_colophon`.
 - `marginalia.py` — the live inspection UI (item #1 of the former "Open work"
   list). Stdlib-only `http.server` + a single vanilla-JS page; loads a trained
-  `colophon.npz` and serves `prompt_confidence()` / `scorecard_section()` live.
-  `confidence_readout()` adds a layperson layer — entropy reframed as a
-  `confidence% = (1 − entropy) × 100` headline plus a plain-English verdict —
-  computed server-side (not re-derived in JS) with the raw entropy still shown
-  underneath so the number stays auditable. The off-map flag overrides the
-  friendly percentage on OOD prompts, keeping the "confidence under-reads OOD"
-  lesson visible. No new dependencies. Not imported by `colophon.py`. Serves a
-  **teaching-mode toggle**: it loads both the OSAI model (`--npz`/`--src`) and
-  the periodic-table model (`--elements-npz`/`--elements-src`), and
-  `/api/analyze?mode=` routes between them; `/api/modes` drives the page copy
-  (labels/blurbs/examples live server-side in `MODE_META`). A mode whose weights
-  are absent degrades to a disabled toggle + 503, never a crash. OSAI is the
-  default; elements is the opt-in on-ramp.
-- `test_marginalia.py` — stdlib `unittest`; checks `analyze_prompt()` is a
-  faithful wrapper around `prompt_confidence()` / `generate()`, including the
-  off-map signal on an out-of-distribution prompt, that `confidence_readout()`
-  inverts entropy, overrides on off-map, and gives an empty prompt no confidence
-  number, and the **mode routing** (`/api/modes` availability, `?mode=` picks
-  the model, unknown mode → 400, absent mode → 503) via a live ephemeral server.
+  `colophon.npz` and layers a layperson read over a maximal white-box inspector.
+  Layperson layer: a `confidence_readout()` headline (entropy reframed as
+  `confidence% = (1 − entropy) × 100` + a plain-English verdict, computed
+  server-side with the raw entropy still shown for audit; the off-map flag
+  overrides the friendly percentage on OOD prompts, keeping the "confidence
+  under-reads OOD" lesson visible), the off-map/unknown-char flag, a sampled
+  continuation, and a literal source-in-training-data match (`find_source_echo()`).
+  Inspector: a per-character entropy heatmap, the literal K-char context window,
+  occlusion-based context saliency, a top-k next-char inspector, session
+  aggregates, and the OSAI scorecard. Every signal is read from the weights via
+  `colophon.inspect_prompt()` / `context_saliency()` / `prompt_confidence()` —
+  the honest version of what black-box tools can only simulate. No new
+  dependencies. Not imported by `colophon.py`. Serves a **teaching-mode toggle**:
+  it loads both the OSAI model (`--npz`/`--src`) and the periodic-table model
+  (`--elements-npz`/`--elements-src`); `/api/analyze?mode=` and `/api/saliency?mode=`
+  route between them and `/api/modes` drives the page copy (labels/blurbs/examples
+  live server-side in `MODE_META`). A mode whose weights are absent degrades to a
+  disabled toggle + 503, never a crash. OSAI is the default; elements is the
+  opt-in on-ramp.
+- `test_marginalia.py` — stdlib `unittest`; checks `analyze_prompt()` faithfully
+  wraps `inspect_prompt()` / `prompt_confidence()` (per-position records + the
+  off-map signal on an OOD prompt), that `context_saliency()` and the
+  `/api/saliency` route behave (incl. 400 on a bad `pos`), that
+  `confidence_readout()` inverts entropy, overrides on off-map, and gives an empty
+  prompt no number, that `find_source_echo()` / the corpus helpers locate
+  verbatim training-data matches, and the **mode routing** (`/api/modes`
+  availability, `?mode=` picks the model for both analyze + saliency, unknown mode
+  → 400, absent mode → 503) via a live ephemeral server.
 - `README.md` — full concept/problem/solution + honest limits + counter-position +
   OSAI attribution.
 
@@ -147,10 +156,16 @@ filed as #7 and shipped in #9.
 Done: **tests** — `test_colophon.py` covers the finite-difference gradient check
 and the entropy/off-map signals.
 Done: **Marginalia** — the live inspection UI (`marginalia.py`, stdlib-only
-`http.server` + a single-page frontend) shows a layperson confidence readout
+`http.server` + a single-page frontend) layers a layperson confidence readout
 (entropy reframed as a `confidence%` headline + plain-English verdict, raw
-entropy still shown for audit), the off-map/unknown-char flag, a sampled
-continuation, and the OSAI scorecard against a trained `colophon.npz`.
+entropy still shown for audit; off-map overrides the number on OOD prompts), an
+off-map flag, a sampled continuation, and a literal source-in-training-data
+panel (`find_source_echo()`) over a five-region white-box inspector:
+per-character entropy heatmap, literal K-char context window, occlusion-based
+context saliency (`context_saliency()`), a top-k next-char inspector with the
+ground-truth char's rank, session aggregates, and the OSAI scorecard. Framed
+throughout as "the real version of what black-box LLM tools fake". Backed by
+`colophon.inspect_prompt()` / `context_saliency()` / `prompt_confidence()`.
 Done: **periodic-table teaching corpus** — a second, layperson-legible corpus
 (`teaching_data/`, 118 elements, `number/symbol/name/period`) whose ground truth
 the reader already holds, surfaced as a Marginalia teaching-mode toggle
