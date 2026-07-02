@@ -400,6 +400,22 @@ def _full_context_ids(p, stoi, itos, K, text, n_continuation, seed):
     return ids, len(prompt_ids), cont
 
 
+def _slot_types(chars, n_prompt, stoi):
+    """Classify every position of the K-pad + prompt + continuation sequence
+    inspect_prompt() reasons over as "pad" (synthetic left padding, before the
+    real text starts), "off_map" (a real character the model has no vocab id
+    for -- it maps to PAD id 0 same as pad, but it is NOT pad), "prompt", or
+    "continuation". Ground truth for the pad-vs-off-map distinction that a
+    raw id==0 check cannot make (both pad and unknown chars share id 0)."""
+    types = []
+    for idx, ch in enumerate(chars):
+        if ch not in stoi:
+            types.append("off_map")
+        else:
+            types.append("prompt" if idx < n_prompt else "continuation")
+    return types
+
+
 def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
     """Maximal per-position white-box record over the teacher-forced prompt plus
     the model's sampled continuation. Every number here is read from the weights
@@ -408,11 +424,16 @@ def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
     Each record: the actual next char (+ readable display), whether it is the
     typed prompt or the model's own continuation, normalized next-char entropy
     (identical to prompt_confidence's), the top-k next-char distribution, the
-    literal K-char context window the model saw (∅ = pad), and where the actual
-    next char ranked (truth_rank/truth_prob; null when off-map)."""
+    literal K-char context window the model saw (∅ = pad) plus a parallel
+    context_types list classifying each of those K slots as pad/off_map/prompt/
+    continuation (so a UI can tell "beyond the horizon" apart from "a character
+    the model has never seen" -- both render as ∅ but are not the same thing),
+    and where the actual next char ranked (truth_rank/truth_prob; null when
+    off-map)."""
     ids, n_prompt, cont = _full_context_ids(p, stoi, itos, K, text,
                                             n_continuation, seed)
     chars = text + cont
+    types = ["pad"] * K + _slot_types(chars, n_prompt, stoi)
     records = []
     for i, ch in enumerate(chars):
         ctx = ids[i:i + K]
@@ -436,6 +457,7 @@ def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
             "entropy": ent,
             "top_k": top,
             "context_window": [_display_char(itos[int(c)]) for c in ctx],
+            "context_types": types[i:i + K],
             "truth_rank": truth_rank,
             "truth_prob": truth_prob,
             "off_map": off,

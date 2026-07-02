@@ -224,6 +224,14 @@ INDEX_HTML = """<!DOCTYPE html>
   :root { color-scheme: light dark; }
   body { font-family: ui-monospace, Menlo, Consolas, monospace; max-width: 900px;
          margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  #sidebar { margin-top: 1.5rem; }
+  @media (min-width: 1200px) {
+    body { max-width: 1300px; }
+    #layout { display: grid; grid-template-columns: minmax(0, 900px) 320px; gap: 2rem;
+              align-items: start; }
+    #sidebar { margin-top: 0; position: sticky; top: 1rem;
+               max-height: calc(100vh - 2rem); overflow-y: auto; }
+  }
   h1 { font-size: 1.3rem; } h1 .glyph { opacity: .6; }
   textarea { width: 100%; min-height: 4rem; font: inherit; padding: .5rem;
              box-sizing: border-box; }
@@ -270,6 +278,23 @@ INDEX_HTML = """<!DOCTYPE html>
   .cell { display: inline-block; min-width: 1.4rem; text-align: center;
           border: 1px solid #8884; border-radius: 3px; margin: 1px; padding: .1rem .2rem; }
   .cell.pad { opacity: .4; }
+  .cell.off-map { outline: 1px solid #d33; font-weight: bold; }
+  #tape { display: flex; flex-wrap: wrap; gap: 1px; max-height: 60vh; overflow-y: auto; }
+  .tape-cell { display: inline-block; min-width: 1.1rem; text-align: center;
+               border-radius: 2px; padding: .05rem .15rem; cursor: pointer; font-size: .85rem; }
+  .tape-cell.pad { opacity: .35; cursor: default; }
+  .tape-cell.prompt { background: #06f3; }
+  .tape-cell.continuation { background: #2a63; text-decoration: underline dotted; }
+  .tape-cell.off-map { background: #d333; outline: 1px solid #d33; font-weight: bold; }
+  .tape-cell.in-window { outline: 2px solid #06f; }
+  .tape-legend { display: flex; flex-wrap: wrap; margin: .4rem 0; }
+  .legend-item { display: inline-flex; align-items: center; gap: .3rem;
+                 margin: 0 .8rem .2rem 0; font-size: .8rem; }
+  .legend-swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 2px; }
+  .legend-swatch.pad { opacity: .35; background: #8888; }
+  .legend-swatch.prompt { background: #06f3; }
+  .legend-swatch.continuation { background: #2a63; }
+  .legend-swatch.off-map { background: #d333; outline: 1px solid #d33; }
   .salbar { height: 6px; background: #06f; border-radius: 3px; margin-top: 2px; }
   .barrow { display: flex; align-items: center; gap: .5rem; margin: 2px 0; }
   .barrow .lab { min-width: 2rem; text-align: right; }
@@ -281,6 +306,8 @@ INDEX_HTML = """<!DOCTYPE html>
 </style>
 </head>
 <body>
+<div id="layout">
+<div id="main">
 <h1><span class="glyph">&#10087;</span> Marginalia</h1>
 <div id="bb-banner">Every number below is read straight from <code>colophon.npz</code> --
 the model's own weights. A hosted LLM (GPT, Gemini, Claude via API) hides all of it;
@@ -363,6 +390,23 @@ not guessed at in JavaScript. Pick a corpus:</p>
 </div>
 
 <div id="error" class="error"></div>
+</div>
+
+<aside id="sidebar" aria-label="Full context tape">
+  <div class="panel" id="tape-panel">
+    <h2>Full context window</h2>
+    <p class="muted">Every position the model has touched for this prompt, in order:
+    <span id="tape-k">K</span> pad slots, then what you typed, then what it wrote back.
+    The <b>outlined</b> band is the K-slot window the focused character's prediction
+    actually saw -- the model's whole memory, made visible.</p>
+    <div class="tape-legend" id="tape-legend"></div>
+    <div id="tape">type to begin</div>
+    <div class="bb">Closed API here: a hosted model's context window is invisible --
+    you're told a token limit, never shown where you are inside it, and an unseen
+    character silently vanishing into padding is not something you can see.</div>
+  </div>
+</aside>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -452,11 +496,15 @@ function renderFocus() {
   $('focus-label').textContent = r ? `'${r.display}'` : '--';
 
   const rail = $('rail'); rail.innerHTML = '';
-  if (r) r.context_window.forEach(c => {
+  if (r) r.context_window.forEach((c, j) => {
     const d = document.createElement('span');
-    d.className = 'cell' + (c === '∅' ? ' pad' : '');
+    const t = r.context_types[j];
+    d.className = 'cell' + (t === 'off_map' ? ' off-map' : t === 'pad' ? ' pad' : '');
+    d.title = t.replace('_', '-');
     d.textContent = c; rail.appendChild(d);
   });
+
+  highlightTapeWindow();
 
   const ins = $('inspector'); ins.innerHTML = '';
   if (!r) { ins.textContent = 'type to begin'; return; }
@@ -479,6 +527,60 @@ function renderFocus() {
   const note = document.createElement('div'); note.className = 'muted';
   note.textContent = `top ${r.top_k.length} of the model's full next-char distribution.`;
   ins.appendChild(note);
+}
+
+const TAPE_LEGEND = [
+  ['pad', 'pad -- beyond the horizon'],
+  ['prompt', 'what you typed'],
+  ['continuation', "the model's own output"],
+  ['off-map', 'off-map -- never seen'],
+];
+
+function renderTapeLegend() {
+  const el = $('tape-legend'); el.innerHTML = '';
+  TAPE_LEGEND.forEach(([cls, label]) => {
+    const item = document.createElement('span'); item.className = 'legend-item';
+    const sw = document.createElement('span'); sw.className = 'legend-swatch ' + cls;
+    item.append(sw, document.createTextNode(label));
+    el.appendChild(item);
+  });
+}
+
+function tapeCellType(r) {
+  return r.off_map ? 'off-map' : (r.is_continuation ? 'continuation' : 'prompt');
+}
+
+function renderTape() {
+  const el = $('tape'); el.innerHTML = '';
+  if (!records.length) { el.textContent = 'type to begin'; return; }
+  const K = records[0].context_window.length;
+  $('tape-k').textContent = K;
+  for (let t = 0; t < K; t++) {
+    const cell = document.createElement('span');
+    cell.className = 'tape-cell pad';
+    cell.textContent = '∅';
+    cell.title = 'pad -- beyond the horizon, nothing here';
+    el.appendChild(cell);
+  }
+  records.forEach((r, i) => {
+    const cell = document.createElement('span');
+    const type = tapeCellType(r);
+    cell.className = 'tape-cell ' + type;
+    cell.textContent = r.display;
+    cell.title = type === 'off-map'
+      ? 'off-map -- never seen; the model maps it to PAD (no representation)'
+      : `${type} · entropy ${r.entropy.toFixed(3)}`;
+    cell.onclick = () => { focus = i; renderFocus(); fetchSaliency(); };
+    el.appendChild(cell);
+  });
+  highlightTapeWindow();
+}
+
+function highlightTapeWindow() {
+  const cells = document.querySelectorAll('#tape .tape-cell');
+  if (!records.length) return;
+  const K = records[0].context_window.length;
+  cells.forEach((c, t) => c.classList.toggle('in-window', t >= focus && t < focus + K));
 }
 
 function renderAggregates() {
@@ -540,7 +642,7 @@ function renderAnalysis(data) {
   focus = records.length
     ? records.reduce((best, r, i, a) => r.entropy > a[best].entropy ? i : best, 0)
     : 0;
-  renderHeatmap(); renderFocus(); renderAggregates(); fetchSaliency();
+  renderHeatmap(); renderTape(); renderFocus(); renderAggregates(); fetchSaliency();
 }
 
 let activeMode = null;
@@ -639,6 +741,7 @@ function renderScorecard(sc) {
 fetch('/api/scorecard').then(r => r.json()).then(renderScorecard)
   .catch(e => { errorEl.textContent = String(e); });
 
+renderTapeLegend();
 loadModes();
 </script>
 </body>
