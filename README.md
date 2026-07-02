@@ -60,6 +60,13 @@ python colophon.py generate --prompt "weights_basemodel:"
 Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand:
 `python colophon.py --src ./osai --steps 8000 demo`.
 
+`demo`'s generation prompt and in/out-of-distribution confidence probes assume
+the OSAI index's schema (`weights_basemodel:`/`datasheet:`/`licenses:`). Point
+`--src` at a differently-shaped corpus and `demo` detects the mismatch, skips
+the misleading probes, and says so instead of mislabeling your own in-corpus
+text as off-map -- use `marginalia.py` for a live, per-corpus confidence
+reading against whatever you actually trained on.
+
 Alternatively, install it as a package and use the `colophon` console command:
 
 ```bash

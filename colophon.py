@@ -25,7 +25,10 @@ Subcommands:
   prepare  Build the corpus + write colophon.json (data section) and print scope.
   train    Train from scratch; save colophon.npz weights + colophon.json.
   demo     Train (fast), then show generation, in- vs out-of-distribution
-           confidence, and the OSAI 14-dimension openness scorecard.
+           confidence, and the OSAI 14-dimension openness scorecard. The
+           generation prompt and confidence probes assume the OSAI index
+           schema; on a differently-shaped --src, demo detects the mismatch
+           and warns instead of mislabeling in-corpus text as off-map.
 
 Usage:
   python colophon.py demo                       # runs end-to-end on bundled data
@@ -635,6 +638,20 @@ OUT_DIST = [
 ]
 
 
+def _osai_schema_present(text):
+    """Whether the IN_DIST probe prompts are character-compatible with this
+    corpus. IN_DIST doesn't need to appear verbatim -- the bundled sample uses
+    a flattened key style (`availability_weights_basemodel_class:`) rather
+    than the real index's nested `weights_basemodel:` / `class:` blocks, yet
+    every character IN_DIST uses is one the model has seen. What matters is
+    that: a corpus missing characters IN_DIST relies on (e.g. a teaching
+    corpus with no `_`) would flag every IN_DIST prompt off-map on account of
+    those unseen characters -- mislabeling the corpus's own in-distribution
+    text, the opposite of what demo is meant to show."""
+    seen = set(text)
+    return all(c in seen for prompt in IN_DIST for c in prompt)
+
+
 def cmd_prepare(args):
     text, paths = load_corpus(args.src)
     chars, stoi, itos = build_vocab(text)
@@ -670,26 +687,41 @@ def cmd_demo(args):
     print(f"\ntrained {man['parameters']} params in "
           f"{man['wall_clock_seconds']}s, final loss {man['final_loss']:.4f}")
 
+    osai_shaped = _osai_schema_present(text)
+
     print("\n--- generation from an in-distribution prompt "
           "(the model's native world) ---")
-    print(repr(generate(p, stoi, itos, K,
-                        prompt="weights_basemodel:\n    class: ", n=180, seed=args.seed)))
+    if osai_shaped:
+        print(repr(generate(p, stoi, itos, K,
+                            prompt="weights_basemodel:\n    class: ", n=180, seed=args.seed)))
+    else:
+        print("  SKIPPED -- this prompt assumes the OSAI index schema "
+              "(weights_basemodel:/datasheet:/licenses:), which this corpus "
+              "doesn't share. See the note below.")
 
     print("\n--- confidence: in-distribution vs out-of-distribution ---")
-    print("  (normalized next-char entropy: 0 = certain, 1 = no idea)")
-    for label, prompts in (("IN ", IN_DIST), ("OUT", OUT_DIST)):
-        for pr in prompts:
-            ent, unk = prompt_confidence(p, stoi, K, pr)
-            flag = f"  <-- {len(unk)} chars never seen in training" if unk else ""
-            show = pr if len(pr) <= 42 else pr[:39] + "..."
-            print(f"  [{label}] entropy {ent:.3f}  {show!r}{flag}")
+    if not osai_shaped:
+        print("  demo's IN/OUT probe prompts are hardcoded to the OSAI index")
+        print("  schema, so on this corpus they would misreport your own")
+        print("  in-distribution text as off-map -- the opposite of what this")
+        print("  demo is meant to show. demo is OSAI-oriented; for a live,")
+        print("  per-corpus confidence and off-map reading against whatever you")
+        print("  actually trained on, run marginalia.py instead.")
+    else:
+        print("  (normalized next-char entropy: 0 = certain, 1 = no idea)")
+        for label, prompts in (("IN ", IN_DIST), ("OUT", OUT_DIST)):
+            for pr in prompts:
+                ent, unk = prompt_confidence(p, stoi, K, pr)
+                flag = f"  <-- {len(unk)} chars never seen in training" if unk else ""
+                show = pr if len(pr) <= 42 else pr[:39] + "..."
+                print(f"  [{label}] entropy {ent:.3f}  {show!r}{flag}")
 
-    print("\n  Note the failure mode: the OUT prompts about the cell, a 2027")
-    print("  election, or Japanese are not things this model can know. It either")
-    print("  has no characters for them, or it confidently continues in its own")
-    print("  world regardless -- the 'fluent, certain, and wrong' case that no")
-    print("  amount of confidence-reading catches. Here you can PROVE it's wrong,")
-    print("  because you can read everything it was ever trained on.")
+        print("\n  Note the failure mode: the OUT prompts about the cell, a 2027")
+        print("  election, or Japanese are not things this model can know. It either")
+        print("  has no characters for them, or it confidently continues in its own")
+        print("  world regardless -- the 'fluent, certain, and wrong' case that no")
+        print("  amount of confidence-reading catches. Here you can PROVE it's wrong,")
+        print("  because you can read everything it was ever trained on.")
 
     print_scorecard()
 
@@ -723,7 +755,9 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("train")
-    sub.add_parser("demo")
+    sub.add_parser("demo", help="train, then show generation + OSAI-schema "
+                    "in/out-of-distribution confidence + scorecard (warns "
+                    "instead of misreporting on a non-OSAI --src)")
     g = sub.add_parser("generate")
     g.add_argument("--prompt", default="weights_basemodel:")
     g.add_argument("--n", type=int, default=240)

@@ -12,6 +12,11 @@ would silently rot if the code changed underneath the docs:
 Run: python -m unittest test_colophon    (or: python test_colophon.py)
 """
 
+import argparse
+import contextlib
+import io
+import os
+import tempfile
 import unittest
 import warnings
 import numpy as np
@@ -307,6 +312,51 @@ class ContextSaliency(unittest.TestCase):
         with self.assertRaises(IndexError):
             C.context_saliency(self.p, self.stoi, self.itos, self.K, "hi",
                                pos=99, n_continuation=0)
+
+
+class DemoOsaiSchemaGuard(unittest.TestCase):
+    """demo's IN_DIST/OUT_DIST confidence probes assume the OSAI index's
+    nested-block schema. On a corpus that doesn't share it, demo must warn and
+    skip the probes rather than mislabel the corpus's own in-distribution text
+    as off-map (the opposite of what the demo is meant to show)."""
+
+    def test_osai_sample_corpus_is_recognized(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.assertTrue(C._osai_schema_present(text))
+
+    def test_non_osai_corpus_is_not_recognized(self):
+        text = "number: 1\nsymbol: H\nname: Hydrogen\nperiod: 1\n"
+        self.assertFalse(C._osai_schema_present(text))
+
+    def _run_demo(self, src):
+        args = argparse.Namespace(src=src, steps=20, seed=0, arch="mlp")
+        orig_here = C.HERE
+        C.HERE = tempfile.mkdtemp()
+        try:
+            with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    C.cmd_demo(args)
+        finally:
+            C.HERE = orig_here
+        return buf.getvalue()
+
+    def test_osai_shaped_src_runs_confidence_probes_unchanged(self):
+        out = self._run_demo(C.DEFAULT_SRC)
+        self.assertIn("[IN ]", out)
+        self.assertIn("[OUT]", out)
+        self.assertNotIn("SKIPPED", out)
+
+    def test_non_osai_src_warns_instead_of_misreporting(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "elements.yaml"), "w") as f:
+                f.write("number: 1\nsymbol: H\nname: Hydrogen\nperiod: 1\n"
+                        "number: 2\nsymbol: He\nname: Helium\nperiod: 1\n")
+            out = self._run_demo(d)
+        self.assertNotIn("[IN ]", out)
+        self.assertNotIn("[OUT]", out)
+        self.assertIn("SKIPPED", out)
+        self.assertIn("marginalia.py", out)
 
 
 class AccelerateMatmulWarnings(unittest.TestCase):
