@@ -80,6 +80,19 @@ class OffMapSignal(unittest.TestCase):
         self.assertEqual(unknown, [], "native text should have no off-map chars")
 
 
+class DisplayChar(unittest.TestCase):
+    """Readable glyphs for the inspection UI; every other character is itself."""
+    def test_control_and_whitespace_glyphs(self):
+        self.assertEqual(C._display_char("\x00"), "∅")
+        self.assertEqual(C._display_char(" "), "␣")
+        self.assertEqual(C._display_char("\n"), "⏎")
+        self.assertEqual(C._display_char("\t"), "⇥")
+
+    def test_ordinary_char_passes_through(self):
+        self.assertEqual(C._display_char("a"), "a")
+        self.assertEqual(C._display_char(":"), ":")
+
+
 class ColophonJson(unittest.TestCase):
     """The self-describing colophon.json contract the README promises: one file
     with data, training, and scorecard sections."""
@@ -178,6 +191,122 @@ class TransformerArch(unittest.TestCase):
         out = C.generate(p2, self.stoi, self.itos, man["context_length_K"],
                           prompt="availability_", n=10, seed=0)
         self.assertTrue(out.startswith("availability_"))
+
+
+class InspectPrompt(unittest.TestCase):
+    """Per-position white-box records: entropy must equal prompt_confidence's,
+    top_k must be a real sorted distribution, truth-rank must be correct, and
+    off-map chars must carry null truth fields."""
+
+    def setUp(self):
+        self.text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(self.text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_record_count_and_shape(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K,
+                                "weights", topk=5, n_continuation=6, seed=0)
+        self.assertEqual(len(recs), len("weights") + 6)
+        r = recs[0]
+        for key in ("char", "display", "is_continuation", "entropy", "top_k",
+                    "context_window", "truth_rank", "truth_prob", "off_map"):
+            self.assertIn(key, r)
+        self.assertEqual(len(r["context_window"]), self.K)
+        self.assertTrue(all(recs[i]["is_continuation"] is False
+                            for i in range(len("weights"))))
+        self.assertTrue(recs[-1]["is_continuation"] is True)
+
+    def test_prompt_entropy_mean_matches_prompt_confidence(self):
+        text = self.text[:30]
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, text,
+                                n_continuation=0, seed=0)
+        mean_ent = sum(r["entropy"] for r in recs) / len(recs)
+        ent, _ = C.prompt_confidence(self.p, self.stoi, self.K, text)
+        self.assertAlmostEqual(mean_ent, ent, places=9)
+
+    def test_top_k_sorted_and_normalized(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                                topk=5, n_continuation=0)
+        top = recs[0]["top_k"]
+        self.assertLessEqual(len(top), 5)
+        probs = [pr for _, pr in top]
+        self.assertEqual(probs, sorted(probs, reverse=True))
+        self.assertTrue(all(0.0 < pr <= 1.0 for pr in probs))
+
+    def test_truth_rank_matches_hand_computed(self):
+        # Rank the actual next char in position 0's full distribution by hand.
+        text = "class"
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, text,
+                                n_continuation=0)
+        ctx = np.array([[0, 0, 0, 0]])
+        logits, _ = C.forward(self.p, ctx)
+        l = logits[0] - logits[0].max()
+        pr = np.exp(l); pr /= pr.sum()
+        cid = self.stoi[text[0]]
+        expected_rank = int((pr > pr[cid]).sum()) + 1
+        self.assertEqual(recs[0]["truth_rank"], expected_rank)
+        self.assertAlmostEqual(recs[0]["truth_prob"], float(pr[cid]), places=9)
+
+    def test_off_map_char_has_null_truth(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "日x",
+                                n_continuation=0)
+        self.assertTrue(recs[0]["off_map"])
+        self.assertIsNone(recs[0]["truth_rank"])
+        self.assertIsNone(recs[0]["truth_prob"])
+        self.assertFalse(recs[1]["off_map"])  # "x" is ASCII, in vocab
+
+    def test_pad_slots_shown_as_glyph(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "ab",
+                                n_continuation=0)
+        # Position 0 sees an all-pad context.
+        self.assertEqual(recs[0]["context_window"], ["∅", "∅", "∅", "∅"])
+
+
+class ContextSaliency(unittest.TestCase):
+    """Occlusion attribution over the K-char window: real, model-derived
+    'which remembered character mattered', not a simulated attention weight."""
+
+    def setUp(self):
+        self.text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(self.text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_window_shape_and_delta_range(self):
+        out = C.context_saliency(self.p, self.stoi, self.itos, self.K,
+                                 "weights", pos=6, n_continuation=0)
+        self.assertEqual(out["pos"], 6)
+        self.assertEqual(len(out["window"]), self.K)
+        for cell in out["window"]:
+            self.assertTrue(0.0 <= cell["delta"] <= 1.0)
+            for key in ("char", "display", "delta", "is_pad"):
+                self.assertIn(key, cell)
+
+    def test_pad_slot_has_zero_delta(self):
+        # Position 0 sees an all-pad context; occluding PAD with PAD changes nothing.
+        out = C.context_saliency(self.p, self.stoi, self.itos, self.K,
+                                 "weights", pos=0, n_continuation=0)
+        for cell in out["window"]:
+            self.assertTrue(cell["is_pad"])
+            self.assertAlmostEqual(cell["delta"], 0.0, places=12)
+
+    def test_delta_matches_hand_computed_tv_distance(self):
+        text = "weights"
+        pos = 6
+        out = C.context_saliency(self.p, self.stoi, self.itos, self.K, text,
+                                 pos=pos, n_continuation=0)
+        ids = [0] * self.K + [self.stoi.get(c, 0) for c in text]
+        ctx = ids[pos:pos + self.K]
+        base = C._dist(self.p, ctx)
+        occ = list(ctx); occ[0] = 0
+        expected = float(0.5 * np.abs(base - C._dist(self.p, occ)).sum())
+        self.assertAlmostEqual(out["window"][0]["delta"], expected, places=12)
+
+    def test_out_of_range_pos_raises(self):
+        with self.assertRaises(IndexError):
+            C.context_saliency(self.p, self.stoi, self.itos, self.K, "hi",
+                               pos=99, n_continuation=0)
 
 
 class AccelerateMatmulWarnings(unittest.TestCase):
