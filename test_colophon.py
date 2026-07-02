@@ -80,6 +80,48 @@ class OffMapSignal(unittest.TestCase):
         self.assertEqual(unknown, [], "native text should have no off-map chars")
 
 
+class DemoSchemaWarning(unittest.TestCase):
+    """demo's IN_DIST/OUT_DIST prompts and sample generation are hardcoded to
+    the OSAI-index schema. On a corpus that doesn't use it, demo must warn
+    rather than silently mislabel in-corpus text as off-map (issue #28)."""
+
+    def test_osai_shaped_corpus_passes(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.assertTrue(C._looks_like_osai_corpus(text))
+
+    def test_non_osai_corpus_is_flagged(self):
+        text = "number: 26\nsymbol: Fe\nname: Iron\nperiod: 4\n"
+        self.assertFalse(C._looks_like_osai_corpus(text))
+
+    def _run_demo(self, src):
+        import argparse, contextlib, io, tempfile
+        args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp")
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as d:
+            orig_here = C.HERE
+            C.HERE = d
+            try:
+                with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+                    with contextlib.redirect_stdout(buf):
+                        C.cmd_demo(args)
+            finally:
+                C.HERE = orig_here
+        return buf.getvalue()
+
+    def test_demo_warns_on_non_osai_src(self):
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "elements.yaml"), "w") as f:
+                f.write("number: 26\nsymbol: Fe\nname: Iron\nperiod: 4\n" * 5)
+            out = self._run_demo(d)
+        self.assertIn("NOTE:", out)
+        self.assertIn("marginalia.py", out)
+
+    def test_demo_default_src_has_no_warning(self):
+        out = self._run_demo(C.DEFAULT_SRC)
+        self.assertNotIn("NOTE:", out)
+
+
 class DisplayChar(unittest.TestCase):
     """Readable glyphs for the inspection UI; every other character is itself."""
     def test_control_and_whitespace_glyphs(self):
