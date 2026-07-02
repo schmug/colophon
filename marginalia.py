@@ -73,7 +73,7 @@ def confidence_readout(entropy, unknown, has_prompt=True):
         return {"confidence_pct": None, "verdict_level": "none",
                 "verdict": "Type something to see how sure the model is."}
 
-    pct = round((1.0 - entropy) * 100)
+    pct = max(0, min(100, round((1.0 - entropy) * 100)))
     if unknown:
         n = len(unknown)
         return {
