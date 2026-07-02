@@ -218,7 +218,7 @@ function renderFocus() {
     row.append(lab, bar, val); ins.appendChild(row);
   });
   const note = document.createElement('div'); note.className = 'muted';
-  note.textContent = `top ${r.top_k.length} of the full distribution (hover the heatmap for any position).`;
+  note.textContent = `top ${r.top_k.length} of the model's full next-char distribution.`;
   ins.appendChild(note);
 }
 
