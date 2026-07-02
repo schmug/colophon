@@ -161,7 +161,7 @@ index. Type something and watch its own honesty signals react &mdash; how sure i
 is, whether it has ever seen these characters, and what it would write next. Every
 signal is computed by the model's own weights, not guessed at in JavaScript.</p>
 
-<textarea id="prompt" placeholder="Type here, or tap an example below&hellip;" autofocus></textarea>
+<textarea id="prompt" aria-label="Prompt" placeholder="Type here, or tap an example below&hellip;" autofocus></textarea>
 
 <div class="examples">
   <button type="button" data-prompt="weights_basemodel:">Something it trained on</button>
