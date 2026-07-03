@@ -72,6 +72,21 @@ MODE_META = {
         "train_hint": ("python colophon.py --src teaching_data/elements "
                        "--out elements.npz --steps 4000 train"),
     },
+    "kana": {
+        "label": "Kana chart",
+        "blurb": ("A corpus in a script the other two never touch: the 71 "
+                  "hiragana of a learner’s chart. The canonical Japanese "
+                  "prompt splits in two here — the kanji stay off-map while "
+                  "the hiragana light up as known. “Off-map” is a fact about "
+                  "the model and its data, not about the text."),
+        "examples": [
+            ("Something it trained on (し = shi)", "kana: し\n"),
+            ("Half on the chart, half off", "日本語で書いてください"),
+            ("Same language, wrong script", "カタカナ"),
+        ],
+        "train_hint": ("python colophon.py --src teaching_data/kana "
+                       "--out kana.npz --steps 3000 train"),
+    },
 }
 DEFAULT_MODE = "osai"
 
@@ -996,6 +1011,8 @@ def _load_mode(mode_id, npz_path, src_dir):
 def main():
     default_elements_npz = os.path.join(colophon.HERE, "elements.npz")
     default_elements_src = os.path.join(colophon.HERE, "teaching_data", "elements")
+    default_kana_npz = os.path.join(colophon.HERE, "kana.npz")
+    default_kana_src = os.path.join(colophon.HERE, "teaching_data", "kana")
     ap = argparse.ArgumentParser(
         description="Marginalia -- live inspection UI for Colophon.")
     ap.add_argument("--npz", default=os.path.join(colophon.HERE, colophon.WEIGHTS_FILE),
@@ -1008,12 +1025,19 @@ def main():
     ap.add_argument("--elements-src", default=default_elements_src,
                     help="directory of the periodic-table .yaml files "
                          "(default: teaching_data/elements)")
+    ap.add_argument("--kana-npz", default=default_kana_npz,
+                    help="trained hiragana kana.npz for the off-map teaching mode "
+                         "(default: kana.npz beside colophon.py)")
+    ap.add_argument("--kana-src", default=default_kana_src,
+                    help="directory of the kana .yaml files "
+                         "(default: teaching_data/kana)")
     ap.add_argument("--host", default="127.0.0.1", help="local-only by default")
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
 
     sources = {"osai": (args.npz, args.src),
-               "elements": (args.elements_npz, args.elements_src)}
+               "elements": (args.elements_npz, args.elements_src),
+               "kana": (args.kana_npz, args.kana_src)}
     modes = {}
     for mode_id, meta in MODE_META.items():
         npz_path, src_dir = sources[mode_id]

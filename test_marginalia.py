@@ -541,5 +541,59 @@ class LoadModel(unittest.TestCase):
             M.load_model("/no/such/colophon.npz")
 
 
+class KanaMode(unittest.TestCase):
+    """The third corpus: MODE_META ships the kana copy the frontend renders,
+    and the handler serves all three modes side by side. Fixtures are built
+    from MODE_META itself, so these fail until the kana entry exists."""
+
+    def _modes(self, kana_model="same"):
+        model = _make_model()
+        modes = {}
+        for mid in M.MODE_META:
+            m = None if (mid == "kana" and kana_model is None) else model
+            modes[mid] = {"model": m, "files": (), "label": mid,
+                          "blurb": "", "examples": []}
+        return modes
+
+    def test_mode_meta_has_kana_copy(self):
+        self.assertIn("kana", M.MODE_META)
+        meta = M.MODE_META["kana"]
+        for key in ("label", "blurb", "examples", "train_hint"):
+            self.assertIn(key, meta)
+        prompts = [prompt for _, prompt in meta["examples"]]
+        self.assertIn("日本語で書いてください", prompts,
+                      "the half-on-the-chart mixed prompt is the point of the mode")
+
+    def test_three_mode_server_routes_kana(self):
+        server = _ServerFixture(self._modes(), default_mode="osai")
+        try:
+            _, _, body = server.get("/api/modes")
+            by_id = {m["id"]: m for m in json.loads(body)["modes"]}
+            self.assertEqual(set(by_id), {"osai", "elements", "kana"})
+            self.assertTrue(by_id["kana"]["available"])
+            status, _, body = server.get("/api/analyze?mode=kana&prompt=kana")
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body)["prompt"], "kana")
+            status, _, body = server.get("/api/saliency?mode=kana&prompt=kana&pos=2")
+            self.assertEqual(status, 200)
+            status, _, _ = server.get("/api/embeddings?mode=kana")
+            self.assertEqual(status, 200)
+        finally:
+            server.close()
+
+    def test_absent_kana_model_503_and_unavailable(self):
+        server = _ServerFixture(self._modes(kana_model=None), default_mode="osai")
+        try:
+            status, _, body = server.get("/api/analyze?mode=kana&prompt=x")
+            self.assertEqual(status, 503)
+            self.assertIn("error", json.loads(body))
+            _, _, modes_body = server.get("/api/modes")
+            by_id = {m["id"]: m for m in json.loads(modes_body)["modes"]}
+            self.assertFalse(by_id["kana"]["available"])
+            self.assertTrue(by_id["osai"]["available"])
+        finally:
+            server.close()
+
+
 if __name__ == "__main__":
     unittest.main()
