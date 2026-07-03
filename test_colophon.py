@@ -423,6 +423,74 @@ class ContextSaliency(unittest.TestCase):
                                pos=99, n_continuation=0)
 
 
+class EmbeddingProjection(unittest.TestCase):
+    """PCA-via-SVD projection of the embedding table `C`, plus cosine-similarity
+    nearest neighbors over the full (un-projected) matrix."""
+
+    def setUp(self):
+        self.text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(self.text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+
+    def test_output_shape(self):
+        out = C.embedding_projection(self.p, self.chars, n_components=2)
+        self.assertEqual(len(out["points"]), len(self.chars))
+        self.assertEqual(len(out["variance_explained"]), 2)
+        self.assertEqual(out["embed_dim"], self.p["C"].shape[1])
+        for pt in out["points"]:
+            self.assertEqual(len(pt["coords"]), 2)
+            self.assertIn("display", pt)
+
+    def test_variance_explained_in_unit_range_and_ordered(self):
+        out = C.embedding_projection(self.p, self.chars, n_components=2)
+        ve = out["variance_explained"]
+        self.assertTrue(all(0.0 <= v <= 1.0 for v in ve))
+        self.assertGreaterEqual(ve[0], ve[1])
+
+    def test_pca_on_known_matrix(self):
+        # A hand-built embedding table where the first axis (0.1 per column)
+        # carries all the variance and the second axis is a constant offset
+        # (zero variance): PCA on 4 chars, E=3. The centered first column is
+        # [-1.5, -0.5, 0.5, 1.5] * 0.1, columns 2-3 are constant -> after
+        # centering, only column 1 has any spread, so 100% of the variance
+        # must land on the first component.
+        p = {"C": np.array([[0.0, 5.0, -1.0],
+                            [0.1, 5.0, -1.0],
+                            [0.2, 5.0, -1.0],
+                            [0.3, 5.0, -1.0]])}
+        chars = ["a", "b", "c", "d"]
+        out = C.embedding_projection(p, chars, n_components=2)
+        ve = out["variance_explained"]
+        self.assertAlmostEqual(ve[0], 1.0, places=9)
+        self.assertAlmostEqual(ve[1], 0.0, places=9)
+        # Points must fall in the same relative order as the raw first column
+        # (a < b < c < d) along the sole principal axis -- PCA's sign is
+        # arbitrary, so check monotonicity rather than a specific direction.
+        xs = [pt["coords"][0] for pt in out["points"]]
+        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)]
+        self.assertTrue(all(d > 0 for d in diffs) or all(d < 0 for d in diffs))
+
+    def test_neighbors_sorted_desc_and_exclude_self(self):
+        out = C.embedding_projection(self.p, self.chars, top_k=5)
+        for pt in out["points"]:
+            sims = [n["similarity"] for n in pt["neighbors"]]
+            self.assertEqual(sims, sorted(sims, reverse=True))
+            self.assertNotIn(pt["char"], [n["char"] for n in pt["neighbors"]])
+            self.assertLessEqual(len(pt["neighbors"]), 5)
+
+    def test_identical_embeddings_are_mutual_top_neighbors(self):
+        # Two rows with identical (nonzero) embeddings must be perfect cosine
+        # matches (similarity 1.0) and rank first for each other.
+        p = {"C": np.array([[1.0, 2.0, 3.0],
+                            [1.0, 2.0, 3.0],
+                            [-1.0, 0.5, 2.0]])}
+        chars = ["x", "y", "z"]
+        out = C.embedding_projection(p, chars, top_k=2)
+        by_char = {pt["char"]: pt for pt in out["points"]}
+        self.assertAlmostEqual(by_char["x"]["neighbors"][0]["similarity"], 1.0, places=9)
+        self.assertEqual(by_char["x"]["neighbors"][0]["char"], "y")
+
+
 class AccelerateMatmulWarnings(unittest.TestCase):
     """Apple's Accelerate/vecLib BLAS spuriously raises the divide/overflow/invalid
     floating-point flags from its `matmul` path even when inputs and outputs are

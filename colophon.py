@@ -492,6 +492,49 @@ def context_saliency(p, stoi, itos, K, text, pos, n_continuation=80, seed=0):
     return {"pos": pos, "window": window}
 
 
+def embedding_projection(p, chars, n_components=2, top_k=5):
+    """PCA-project the character embedding table `C` (V, E) to `n_components`
+    dims via SVD -- deterministic and auditable (np.linalg.svd, no sklearn/
+    t-SNE/UMAP). Also reports, per character, its `top_k` nearest neighbors in
+    the FULL embedding space (cosine similarity over the un-projected `C`),
+    so "which characters does the model think are similar" is read from the
+    same matrix the 2D picture is a lossy projection of.
+
+    Returns {"points": [{"char", "display", "coords", "neighbors"}, ...],
+             "variance_explained": [...], "embed_dim": E} -- variance_explained
+    is reported per component so a 2D picture never passes itself off as the
+    whole E-dimensional space."""
+    C = p["C"]
+    V, E = C.shape
+    mean = C.mean(axis=0, keepdims=True)
+    centered = C - mean
+    _, S, Vt = np.linalg.svd(centered, full_matrices=False)
+    total_var = float((S ** 2).sum())
+    n = min(n_components, Vt.shape[0])
+    coords = centered @ Vt[:n].T
+    variance_explained = [float((S[i] ** 2) / total_var) if total_var > 0 else 0.0
+                           for i in range(n)]
+
+    norms = np.linalg.norm(C, axis=1, keepdims=True)
+    norms[norms == 0] = 1e-12
+    normed = C / norms
+    sims = normed @ normed.T  # (V, V) cosine similarity
+
+    points = []
+    for i in range(V):
+        order = np.argsort(sims[i])[::-1]
+        neighbors = [{"char": chars[int(j)], "display": _display_char(chars[int(j)]),
+                      "similarity": float(sims[i, int(j)])}
+                     for j in order if int(j) != i][:top_k]
+        points.append({
+            "char": chars[i],
+            "display": _display_char(chars[i]),
+            "coords": [float(c) for c in coords[i]],
+            "neighbors": neighbors,
+        })
+    return {"points": points, "variance_explained": variance_explained, "embed_dim": E}
+
+
 def prompt_confidence(p, stoi, K, prompt):
     """Teacher-force through `prompt`, returning mean NORMALIZED next-char
     entropy (0 = certain, 1 = uniform) and any characters the model has never
