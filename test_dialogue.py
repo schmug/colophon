@@ -108,7 +108,10 @@ class TestDialogueModelAnswersInChatFormat(unittest.TestCase):
     """Act 3, demonstrated: a model trained on the dialogue corpus completes
     chat-format prompts with the right facts. K must span the question
     (~33 chars), so this trains a K=48 config once for the class.
-    14000 steps reliably reproduces the Iron fact (measured; see Step 3)."""
+    14000 steps reproduces the Iron fact at seed=0 (measured; see Step 3).
+    Note: this checkpoint was hand-picked from a non-monotonic loss landscape
+    (no LR decay, by design) — it is deterministic and reproducible, but may
+    need recalibration if colophon.train_model's internals change."""
 
     @classmethod
     def setUpClass(cls):
