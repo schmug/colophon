@@ -213,6 +213,51 @@ class EmbeddingsWrapper(unittest.TestCase):
         self.assertEqual(got, want)
 
 
+class SourcePageRender(unittest.TestCase):
+    """source_page() renders one training file: numbered anchored lines,
+    optional highlight, escaped everything, provenance footer."""
+
+    def test_numbers_anchors_and_content(self):
+        page = M.source_page("Periodic table", "018_argon.yaml",
+                             "number: 18\nsymbol: Ar\n")
+        self.assertIn('<tr id="L1">', page)
+        self.assertIn('<tr id="L2">', page)
+        self.assertIn("number: 18", page)
+        self.assertIn("018_argon.yaml", page)
+        self.assertIn("Periodic table", page)
+
+    def test_highlight_only_requested_line(self):
+        page = M.source_page("x", "f.yaml", "a: 1\nb: 2\n", line=2)
+        self.assertIn('<tr id="L2" class="hit">', page)
+        self.assertNotIn('<tr id="L1" class="hit">', page)
+
+    def test_no_line_means_no_highlight(self):
+        page = M.source_page("x", "f.yaml", "a: 1\n")
+        self.assertNotIn('class="hit"', page)
+
+    def test_corpus_text_is_escaped(self):
+        page = M.source_page("x", "f.yaml", '<b>&"</b>\n')
+        self.assertNotIn("<b>", page)
+        self.assertIn("&lt;b&gt;", page)
+
+    def test_label_and_filename_are_escaped(self):
+        page = M.source_page("<lab>", "<f>.yaml", "a\n")
+        self.assertNotIn("<lab>", page)
+        self.assertIn("&lt;lab&gt;", page)
+        self.assertNotIn("<f>.yaml", page)
+
+    def test_footer_shows_note_url_and_sha(self):
+        page = M.source_page("x", "f.yaml", "a\n", note="CC BY 4.0",
+                             url="https://example.org/idx", sha="ab12cd")
+        self.assertIn("CC BY 4.0", page)
+        self.assertIn('href="https://example.org/idx"', page)
+        self.assertIn("ab12cd", page)
+
+    def test_page_ships_zero_javascript(self):
+        page = M.source_page("x", "f.yaml", "a\n")
+        self.assertNotIn("<script", page)
+
+
 def _make_model():
     """A small but real model tuple, as a mode config expects it."""
     text, _ = C.load_corpus(C.DEFAULT_SRC)

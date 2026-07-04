@@ -25,7 +25,7 @@ Usage:
 """
 
 from __future__ import annotations
-import argparse, glob, hashlib, http.server, json, os, urllib.parse
+import argparse, glob, hashlib, html, http.server, json, os, urllib.parse
 import numpy as np
 
 import colophon
@@ -171,6 +171,53 @@ def corpus_sha256(files):
     already read (no re-globbing, no re-reading the source directory)."""
     text = ("\n" + colophon.PAD + "\n").join(text for _, text in files)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+_SOURCE_CSS = """
+  :root { color-scheme: light dark; }
+  body { font-family: ui-monospace, Menlo, Consolas, monospace; max-width: 900px;
+         margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { font-size: 1.1rem; } h1 .glyph { opacity: .6; }
+  .muted { opacity: .6; font-size: .85rem; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 0 .5rem; white-space: pre-wrap; word-break: break-all;
+       font-size: .9rem; }
+  td.num { text-align: right; opacity: .5; user-select: none; width: 1%; }
+  tr.hit td { background: #2a62; }
+  footer { margin-top: 1.5rem; }
+"""
+
+
+def source_page(label, filename, text, line=None, note="", url="", sha=""):
+    """Render the /source view: the exact text of one training file, straight
+    from the (name, text) corpus pairs already in memory. Numbered rows are
+    anchored id="L<n>" so the main page's #L<n> fragment scrolls natively --
+    this page ships zero JavaScript. `line` (if it matches a row) gets a
+    highlight class; everything user- or corpus-derived is html.escape()d."""
+    rows = []
+    for i, raw in enumerate(text.splitlines(), 1):
+        hit = ' class="hit"' if i == line else ""
+        rows.append(f'<tr id="L{i}"{hit}><td class="num">{i}</td>'
+                    f'<td>{html.escape(raw)}</td></tr>')
+    head = f"{html.escape(label)} &mdash; {html.escape(filename)}"
+    footer_bits = []
+    if note:
+        footer_bits.append(html.escape(note))
+    if url:
+        footer_bits.append(f'<a href="{html.escape(url)}">{html.escape(url)}</a>')
+    if sha:
+        footer_bits.append(f"corpus sha256 (PAD-joined snapshot): <code>{sha}</code>")
+    footer = " &middot; ".join(footer_bits)
+    return (
+        '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        f"<title>{head}</title>\n<style>{_SOURCE_CSS}</style>\n</head>\n<body>\n"
+        f'<h1><span class="glyph">&#10087;</span> {head}</h1>\n'
+        '<p class="muted">The exact text of one training file, served from the '
+        "corpus copy this model actually trained on &mdash; ground truth, not a "
+        "link out.</p>\n"
+        f"<table>\n{''.join(rows)}\n</table>\n"
+        f'<footer class="muted">{footer}</footer>\n</body>\n</html>\n'
+    )
 
 
 def find_source_echo(files, prompt, floor=SOURCE_SUFFIX_FLOOR, cap=SOURCE_SUFFIX_CAP,
