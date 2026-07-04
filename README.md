@@ -163,10 +163,14 @@ characters actually drove the prediction), a **top-k next-char inspector** with
 where the real next character ranked, an **embedding-space panel** (the entire
 character embedding table, PCA-projected to 2D so it fits on screen exactly,
 with click-to-see nearest neighbors by cosine similarity), and the OSAI
-**openness scorecard**. It is framed as the honest counterpart to black-box
-"observability" tools: a hosted API exposes none of this, and where a tool
-like glassboxllm has to *simulate* per-token confidence, Colophon reads it
-straight from the weights.
+**openness scorecard**. When a prompt matches the corpus verbatim, the source
+panel's `file:line` label links to a **served view of the actual training
+file** — rendered from the same in-memory corpus the model trained on, matched
+line highlighted, with a per-corpus provenance footer (for the real index:
+CC BY 4.0, doi:10.5281/zenodo.15386042). It is framed as the honest counterpart
+to black-box "observability" tools: a hosted API exposes none of this, and
+where a tool like glassboxllm has to *simulate* per-token confidence, Colophon
+reads it straight from the weights.
 
 ### Teaching mode — a corpus you can grade by eye
 
