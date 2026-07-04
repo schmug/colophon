@@ -345,21 +345,46 @@ def train_model(text, stoi, chars, K=12, E=24, H=128, steps=6000, batch=64,
 # Generation + white-box confidence signals
 # --------------------------------------------------------------------------- #
 
-def generate(p, stoi, itos, K, prompt="", n=240, temp=0.8, seed=0):
+def generate(p, stoi, itos, K, prompt="", n=240, temp=0.8, seed=0,
+             top_k=0, banned_ids=(), stop=None):
+    """Sample a continuation of `prompt`. The new knobs are all default-off so
+    historical calls are byte-identical. `banned_ids` masks vocab ids to -inf
+    BEFORE the softmax -- real logit surgery, not a post-hoc filter (Incipit's
+    "ban a char" is this, honestly). `top_k` restricts sampling to the k
+    highest logits. `temp<=0` means greedy argmax (the rng is never consulted).
+    `stop` ends generation the moment the continuation ends with that string
+    -- the stop-sequence concept every chat API has, made visible."""
     rng = np.random.default_rng(seed)
     ctx = [0] * K
     for ch in prompt:
         if ch in stoi:
             ctx = (ctx + [stoi[ch]])[-K:]
+    banned = [int(b) for b in banned_ids]
     out = []
     for _ in range(n):
         logits, _ = forward(p, np.array([ctx]))
-        l = logits[0] / temp
-        l -= l.max()
-        pr = np.exp(l); pr /= pr.sum()
-        j = int(rng.choice(len(pr), p=pr))
+        l = logits[0].astype(np.float64).copy()
+        if banned:
+            l[banned] = -np.inf
+        if not np.isfinite(l).any():
+            raise ValueError("every vocab id is banned -- nothing to sample")
+        if temp <= 0:
+            j = int(np.argmax(l))
+        else:
+            l = l / temp
+            if top_k:
+                finite = np.isfinite(l)
+                k_eff = min(int(top_k), int(finite.sum()))
+                kth = np.sort(l[finite])[-k_eff]
+                l[l < kth] = -np.inf
+            l = l - l[np.isfinite(l)].max()
+            pr = np.exp(l)          # exp(-inf) = 0.0: banned/cut ids get zero mass
+            pr /= pr.sum()
+            j = int(rng.choice(len(pr), p=pr))
         out.append(itos[j])
         ctx = (ctx + [j])[-K:]
+        if stop and "".join(out).endswith(stop):
+            break
     return prompt + "".join(out)
 
 

@@ -563,5 +563,56 @@ class TxtCorpusSupport(unittest.TestCase):
             self.assertTrue(text.startswith("AAA"))
 
 
+class SamplingControls(unittest.TestCase):
+    """New sampling knobs on generate(): top_k, banned_ids, stop, temp<=0
+    greedy. All default-off, so historical calls stay byte-identical."""
+
+    def setUp(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_defaults_unchanged(self):
+        a = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=40, seed=3)
+        b = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=40, seed=3,
+                       top_k=0, banned_ids=(), stop=None)
+        self.assertEqual(a, b)
+
+    def test_temp_zero_is_greedy_and_seed_independent(self):
+        a = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30, temp=0, seed=1)
+        b = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30, temp=0, seed=99)
+        self.assertEqual(a, b)
+
+    def test_top_k_1_equals_greedy(self):
+        greedy = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30, temp=0)
+        topk1 = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30,
+                           temp=1.7, top_k=1, seed=5)
+        self.assertEqual(greedy, topk1)
+
+    def test_banned_char_never_sampled(self):
+        out = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=120,
+                         temp=1.2, seed=2, banned_ids=[self.stoi["e"]])
+        self.assertNotIn("e", out[len("cl"):])
+
+    def test_all_banned_raises(self):
+        with self.assertRaises(ValueError):
+            C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=5,
+                       banned_ids=list(range(len(self.chars))))
+
+    def test_stop_string_halts_generation(self):
+        out = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=200,
+                         temp=1.0, seed=0, stop="\n")
+        cont = out[len("class"):]
+        # The assertion must actually exercise the stop path: with seed=0 the
+        # untrained model emits "\n" well before 200 chars. If a code change
+        # ever makes this seed miss, pick a seed that hits -- do NOT make the
+        # assertion conditional.
+        self.assertIn("\n", cont,
+                      "stop char never sampled -- choose a seed that hits it")
+        self.assertEqual(cont.index("\n"), len(cont) - 1,
+                         "generation must halt at the stop string")
+
+
 if __name__ == "__main__":
     unittest.main()
