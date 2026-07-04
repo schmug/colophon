@@ -15,7 +15,7 @@ export const ACTS: Act[] = [
     title: "It's just a tape",
     mode: 'elements64',
     format: 'raw',
-    prompt: 'number: 26\n',
+    prompt: 'number: 1\n',
     copy: 'Send this and watch the model continue the YAML it was trained ' +
       'on. Then look left: your "conversation" is one growing string, and ' +
       'the highlighted band is the ONLY part the model can see. Keep going ' +
