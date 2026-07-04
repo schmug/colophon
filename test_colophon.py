@@ -12,6 +12,7 @@ would silently rot if the code changed underneath the docs:
 Run: python -m unittest test_colophon    (or: python test_colophon.py)
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -104,7 +105,7 @@ class DemoSchemaWarning(unittest.TestCase):
         # out=None mirrors the CLI default added alongside --out; cmd_demo
         # resolves it to the standard colophon.npz path (redirected via C.HERE).
         args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp", out=None,
-                                  K=12, E=24, H=128)
+                                  K=12, E=24, H=128, lr=3e-3)
         buf = io.StringIO()
         with tempfile.TemporaryDirectory() as d:
             orig_here = C.HERE
@@ -676,6 +677,24 @@ class CliHyperparamFlags(unittest.TestCase):
             self.assertEqual(saved["C"].shape[1], 8)          # E
             self.assertEqual(saved["W1"].shape, (4 * 8, 16))  # (K*E, H)
             self.assertEqual(saved["b1"].shape, (16,))
+
+    def test_lr_flag_reaches_training(self):
+        # --lr must reach train_model. A tiny 2-step run at a distinctive lr
+        # trains without error and saves usable weights; the paired colophon.json
+        # records the lr, proving the flag threaded through (train_model writes
+        # lr into its manifest).
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "lr.npz")
+            r = subprocess.run(
+                [sys.executable, os.path.join(HERE, "colophon.py"),
+                 "--steps", "2", "--K", "4", "--E", "8", "--H", "16",
+                 "--lr", "0.0005", "--out", out, "train"],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            json_path = C.colophon_json_path(out)
+            with open(json_path) as f:
+                man = json.load(f)
+            self.assertEqual(man["training"]["lr"], 0.0005)
 
 
 if __name__ == "__main__":

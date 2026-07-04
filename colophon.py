@@ -783,7 +783,7 @@ def _train_from_args(args):
     chars, stoi, itos = build_vocab(text)
     print(f"corpus: {len(text)} chars, {len(paths)} files, vocab {len(chars)}")
     p, man = train_model(text, stoi, chars, K=args.K, E=args.E, H=args.H,
-                         steps=args.steps, seed=args.seed, arch=args.arch)
+                         lr=args.lr, steps=args.steps, seed=args.seed, arch=args.arch)
     return text, paths, chars, stoi, itos, p, man
 
 
@@ -881,6 +881,10 @@ def main():
                          "keeps its own internal defaults)")
     ap.add_argument("--H", type=int, default=128,
                     help="hidden layer width (MLP path only)")
+    ap.add_argument("--lr", type=float, default=3e-3,
+                    help="Adam learning rate. The K=64 dialogue teaching model "
+                         "needs a lower LR (e.g. 1e-3) to cleanly memorize the "
+                         "harder dialogue corpus; the flagship default stays 3e-3.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("train")
