@@ -1,0 +1,19 @@
+user: what is element 85?
+model: element 85 is Astatine (At), in period 6.
+
+user: what is the symbol for Astatine?
+model: the symbol for Astatine is At.
+
+user: which element has the symbol At?
+model: At is Astatine, element 85.
+
+user: which period is Astatine in?
+model: Astatine is in period 6.
+
+user: tell me about Astatine.
+model: Astatine has symbol At, atomic number 85, and sits in period 6.
+
+user: what is element 85?
+model: element 85 is Astatine (At), in period 6.
+user: which period is it in?
+model: Astatine is in period 6.

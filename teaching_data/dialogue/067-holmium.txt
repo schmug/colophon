@@ -1,0 +1,19 @@
+user: what is element 67?
+model: element 67 is Holmium (Ho), in period 6.
+
+user: what is the symbol for Holmium?
+model: the symbol for Holmium is Ho.
+
+user: which element has the symbol Ho?
+model: Ho is Holmium, element 67.
+
+user: which period is Holmium in?
+model: Holmium is in period 6.
+
+user: tell me about Holmium.
+model: Holmium has symbol Ho, atomic number 67, and sits in period 6.
+
+user: what is element 67?
+model: element 67 is Holmium (Ho), in period 6.
+user: which period is it in?
+model: Holmium is in period 6.

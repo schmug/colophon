@@ -1,0 +1,19 @@
+user: what is element 75?
+model: element 75 is Rhenium (Re), in period 6.
+
+user: what is the symbol for Rhenium?
+model: the symbol for Rhenium is Re.
+
+user: which element has the symbol Re?
+model: Re is Rhenium, element 75.
+
+user: which period is Rhenium in?
+model: Rhenium is in period 6.
+
+user: tell me about Rhenium.
+model: Rhenium has symbol Re, atomic number 75, and sits in period 6.
+
+user: what is element 75?
+model: element 75 is Rhenium (Re), in period 6.
+user: which period is it in?
+model: Rhenium is in period 6.

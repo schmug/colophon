@@ -1,0 +1,19 @@
+user: what is element 101?
+model: element 101 is Mendelevium (Md), in period 7.
+
+user: what is the symbol for Mendelevium?
+model: the symbol for Mendelevium is Md.
+
+user: which element has the symbol Md?
+model: Md is Mendelevium, element 101.
+
+user: which period is Mendelevium in?
+model: Mendelevium is in period 7.
+
+user: tell me about Mendelevium.
+model: Mendelevium has symbol Md, atomic number 101, and sits in period 7.
+
+user: what is element 101?
+model: element 101 is Mendelevium (Md), in period 7.
+user: which period is it in?
+model: Mendelevium is in period 7.

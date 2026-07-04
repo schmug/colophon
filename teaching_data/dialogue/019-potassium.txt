@@ -1,0 +1,19 @@
+user: what is element 19?
+model: element 19 is Potassium (K), in period 4.
+
+user: what is the symbol for Potassium?
+model: the symbol for Potassium is K.
+
+user: which element has the symbol K?
+model: K is Potassium, element 19.
+
+user: which period is Potassium in?
+model: Potassium is in period 4.
+
+user: tell me about Potassium.
+model: Potassium has symbol K, atomic number 19, and sits in period 4.
+
+user: what is element 19?
+model: element 19 is Potassium (K), in period 4.
+user: which period is it in?
+model: Potassium is in period 4.

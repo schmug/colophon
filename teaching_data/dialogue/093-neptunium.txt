@@ -1,0 +1,19 @@
+user: what is element 93?
+model: element 93 is Neptunium (Np), in period 7.
+
+user: what is the symbol for Neptunium?
+model: the symbol for Neptunium is Np.
+
+user: which element has the symbol Np?
+model: Np is Neptunium, element 93.
+
+user: which period is Neptunium in?
+model: Neptunium is in period 7.
+
+user: tell me about Neptunium.
+model: Neptunium has symbol Np, atomic number 93, and sits in period 7.
+
+user: what is element 93?
+model: element 93 is Neptunium (Np), in period 7.
+user: which period is it in?
+model: Neptunium is in period 7.

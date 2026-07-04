@@ -1,0 +1,19 @@
+user: what is element 92?
+model: element 92 is Uranium (U), in period 7.
+
+user: what is the symbol for Uranium?
+model: the symbol for Uranium is U.
+
+user: which element has the symbol U?
+model: U is Uranium, element 92.
+
+user: which period is Uranium in?
+model: Uranium is in period 7.
+
+user: tell me about Uranium.
+model: Uranium has symbol U, atomic number 92, and sits in period 7.
+
+user: what is element 92?
+model: element 92 is Uranium (U), in period 7.
+user: which period is it in?
+model: Uranium is in period 7.

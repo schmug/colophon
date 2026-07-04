@@ -1,0 +1,19 @@
+user: what is element 114?
+model: element 114 is Flerovium (Fl), in period 7.
+
+user: what is the symbol for Flerovium?
+model: the symbol for Flerovium is Fl.
+
+user: which element has the symbol Fl?
+model: Fl is Flerovium, element 114.
+
+user: which period is Flerovium in?
+model: Flerovium is in period 7.
+
+user: tell me about Flerovium.
+model: Flerovium has symbol Fl, atomic number 114, and sits in period 7.
+
+user: what is element 114?
+model: element 114 is Flerovium (Fl), in period 7.
+user: which period is it in?
+model: Flerovium is in period 7.

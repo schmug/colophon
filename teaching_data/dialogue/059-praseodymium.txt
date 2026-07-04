@@ -1,0 +1,19 @@
+user: what is element 59?
+model: element 59 is Praseodymium (Pr), in period 6.
+
+user: what is the symbol for Praseodymium?
+model: the symbol for Praseodymium is Pr.
+
+user: which element has the symbol Pr?
+model: Pr is Praseodymium, element 59.
+
+user: which period is Praseodymium in?
+model: Praseodymium is in period 6.
+
+user: tell me about Praseodymium.
+model: Praseodymium has symbol Pr, atomic number 59, and sits in period 6.
+
+user: what is element 59?
+model: element 59 is Praseodymium (Pr), in period 6.
+user: which period is it in?
+model: Praseodymium is in period 6.

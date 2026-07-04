@@ -1,0 +1,19 @@
+user: what is element 7?
+model: element 7 is Nitrogen (N), in period 2.
+
+user: what is the symbol for Nitrogen?
+model: the symbol for Nitrogen is N.
+
+user: which element has the symbol N?
+model: N is Nitrogen, element 7.
+
+user: which period is Nitrogen in?
+model: Nitrogen is in period 2.
+
+user: tell me about Nitrogen.
+model: Nitrogen has symbol N, atomic number 7, and sits in period 2.
+
+user: what is element 7?
+model: element 7 is Nitrogen (N), in period 2.
+user: which period is it in?
+model: Nitrogen is in period 2.

@@ -1,0 +1,19 @@
+user: what is element 99?
+model: element 99 is Einsteinium (Es), in period 7.
+
+user: what is the symbol for Einsteinium?
+model: the symbol for Einsteinium is Es.
+
+user: which element has the symbol Es?
+model: Es is Einsteinium, element 99.
+
+user: which period is Einsteinium in?
+model: Einsteinium is in period 7.
+
+user: tell me about Einsteinium.
+model: Einsteinium has symbol Es, atomic number 99, and sits in period 7.
+
+user: what is element 99?
+model: element 99 is Einsteinium (Es), in period 7.
+user: which period is it in?
+model: Einsteinium is in period 7.

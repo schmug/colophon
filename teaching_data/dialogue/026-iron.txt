@@ -1,0 +1,19 @@
+user: what is element 26?
+model: element 26 is Iron (Fe), in period 4.
+
+user: what is the symbol for Iron?
+model: the symbol for Iron is Fe.
+
+user: which element has the symbol Fe?
+model: Fe is Iron, element 26.
+
+user: which period is Iron in?
+model: Iron is in period 4.
+
+user: tell me about Iron.
+model: Iron has symbol Fe, atomic number 26, and sits in period 4.
+
+user: what is element 26?
+model: element 26 is Iron (Fe), in period 4.
+user: which period is it in?
+model: Iron is in period 4.

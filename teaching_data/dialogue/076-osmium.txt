@@ -1,0 +1,19 @@
+user: what is element 76?
+model: element 76 is Osmium (Os), in period 6.
+
+user: what is the symbol for Osmium?
+model: the symbol for Osmium is Os.
+
+user: which element has the symbol Os?
+model: Os is Osmium, element 76.
+
+user: which period is Osmium in?
+model: Osmium is in period 6.
+
+user: tell me about Osmium.
+model: Osmium has symbol Os, atomic number 76, and sits in period 6.
+
+user: what is element 76?
+model: element 76 is Osmium (Os), in period 6.
+user: which period is it in?
+model: Osmium is in period 6.

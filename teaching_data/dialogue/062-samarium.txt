@@ -1,0 +1,19 @@
+user: what is element 62?
+model: element 62 is Samarium (Sm), in period 6.
+
+user: what is the symbol for Samarium?
+model: the symbol for Samarium is Sm.
+
+user: which element has the symbol Sm?
+model: Sm is Samarium, element 62.
+
+user: which period is Samarium in?
+model: Samarium is in period 6.
+
+user: tell me about Samarium.
+model: Samarium has symbol Sm, atomic number 62, and sits in period 6.
+
+user: what is element 62?
+model: element 62 is Samarium (Sm), in period 6.
+user: which period is it in?
+model: Samarium is in period 6.

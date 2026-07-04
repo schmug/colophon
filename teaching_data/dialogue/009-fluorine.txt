@@ -1,0 +1,19 @@
+user: what is element 9?
+model: element 9 is Fluorine (F), in period 2.
+
+user: what is the symbol for Fluorine?
+model: the symbol for Fluorine is F.
+
+user: which element has the symbol F?
+model: F is Fluorine, element 9.
+
+user: which period is Fluorine in?
+model: Fluorine is in period 2.
+
+user: tell me about Fluorine.
+model: Fluorine has symbol F, atomic number 9, and sits in period 2.
+
+user: what is element 9?
+model: element 9 is Fluorine (F), in period 2.
+user: which period is it in?
+model: Fluorine is in period 2.

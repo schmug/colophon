@@ -1,0 +1,19 @@
+user: what is element 41?
+model: element 41 is Niobium (Nb), in period 5.
+
+user: what is the symbol for Niobium?
+model: the symbol for Niobium is Nb.
+
+user: which element has the symbol Nb?
+model: Nb is Niobium, element 41.
+
+user: which period is Niobium in?
+model: Niobium is in period 5.
+
+user: tell me about Niobium.
+model: Niobium has symbol Nb, atomic number 41, and sits in period 5.
+
+user: what is element 41?
+model: element 41 is Niobium (Nb), in period 5.
+user: which period is it in?
+model: Niobium is in period 5.

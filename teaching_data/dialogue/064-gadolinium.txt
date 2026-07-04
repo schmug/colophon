@@ -1,0 +1,19 @@
+user: what is element 64?
+model: element 64 is Gadolinium (Gd), in period 6.
+
+user: what is the symbol for Gadolinium?
+model: the symbol for Gadolinium is Gd.
+
+user: which element has the symbol Gd?
+model: Gd is Gadolinium, element 64.
+
+user: which period is Gadolinium in?
+model: Gadolinium is in period 6.
+
+user: tell me about Gadolinium.
+model: Gadolinium has symbol Gd, atomic number 64, and sits in period 6.
+
+user: what is element 64?
+model: element 64 is Gadolinium (Gd), in period 6.
+user: which period is it in?
+model: Gadolinium is in period 6.

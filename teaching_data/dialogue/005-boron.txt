@@ -1,0 +1,19 @@
+user: what is element 5?
+model: element 5 is Boron (B), in period 2.
+
+user: what is the symbol for Boron?
+model: the symbol for Boron is B.
+
+user: which element has the symbol B?
+model: B is Boron, element 5.
+
+user: which period is Boron in?
+model: Boron is in period 2.
+
+user: tell me about Boron.
+model: Boron has symbol B, atomic number 5, and sits in period 2.
+
+user: what is element 5?
+model: element 5 is Boron (B), in period 2.
+user: which period is it in?
+model: Boron is in period 2.

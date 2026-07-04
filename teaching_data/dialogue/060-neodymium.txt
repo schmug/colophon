@@ -1,0 +1,19 @@
+user: what is element 60?
+model: element 60 is Neodymium (Nd), in period 6.
+
+user: what is the symbol for Neodymium?
+model: the symbol for Neodymium is Nd.
+
+user: which element has the symbol Nd?
+model: Nd is Neodymium, element 60.
+
+user: which period is Neodymium in?
+model: Neodymium is in period 6.
+
+user: tell me about Neodymium.
+model: Neodymium has symbol Nd, atomic number 60, and sits in period 6.
+
+user: what is element 60?
+model: element 60 is Neodymium (Nd), in period 6.
+user: which period is it in?
+model: Neodymium is in period 6.

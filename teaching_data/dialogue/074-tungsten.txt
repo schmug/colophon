@@ -1,0 +1,19 @@
+user: what is element 74?
+model: element 74 is Tungsten (W), in period 6.
+
+user: what is the symbol for Tungsten?
+model: the symbol for Tungsten is W.
+
+user: which element has the symbol W?
+model: W is Tungsten, element 74.
+
+user: which period is Tungsten in?
+model: Tungsten is in period 6.
+
+user: tell me about Tungsten.
+model: Tungsten has symbol W, atomic number 74, and sits in period 6.
+
+user: what is element 74?
+model: element 74 is Tungsten (W), in period 6.
+user: which period is it in?
+model: Tungsten is in period 6.

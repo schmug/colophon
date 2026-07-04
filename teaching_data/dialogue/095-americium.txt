@@ -1,0 +1,19 @@
+user: what is element 95?
+model: element 95 is Americium (Am), in period 7.
+
+user: what is the symbol for Americium?
+model: the symbol for Americium is Am.
+
+user: which element has the symbol Am?
+model: Am is Americium, element 95.
+
+user: which period is Americium in?
+model: Americium is in period 7.
+
+user: tell me about Americium.
+model: Americium has symbol Am, atomic number 95, and sits in period 7.
+
+user: what is element 95?
+model: element 95 is Americium (Am), in period 7.
+user: which period is it in?
+model: Americium is in period 7.

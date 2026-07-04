@@ -1,0 +1,19 @@
+user: what is element 118?
+model: element 118 is Oganesson (Og), in period 7.
+
+user: what is the symbol for Oganesson?
+model: the symbol for Oganesson is Og.
+
+user: which element has the symbol Og?
+model: Og is Oganesson, element 118.
+
+user: which period is Oganesson in?
+model: Oganesson is in period 7.
+
+user: tell me about Oganesson.
+model: Oganesson has symbol Og, atomic number 118, and sits in period 7.
+
+user: what is element 118?
+model: element 118 is Oganesson (Og), in period 7.
+user: which period is it in?
+model: Oganesson is in period 7.

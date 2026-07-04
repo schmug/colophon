@@ -1,0 +1,19 @@
+user: what is element 77?
+model: element 77 is Iridium (Ir), in period 6.
+
+user: what is the symbol for Iridium?
+model: the symbol for Iridium is Ir.
+
+user: which element has the symbol Ir?
+model: Ir is Iridium, element 77.
+
+user: which period is Iridium in?
+model: Iridium is in period 6.
+
+user: tell me about Iridium.
+model: Iridium has symbol Ir, atomic number 77, and sits in period 6.
+
+user: what is element 77?
+model: element 77 is Iridium (Ir), in period 6.
+user: which period is it in?
+model: Iridium is in period 6.

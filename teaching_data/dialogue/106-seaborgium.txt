@@ -1,0 +1,19 @@
+user: what is element 106?
+model: element 106 is Seaborgium (Sg), in period 7.
+
+user: what is the symbol for Seaborgium?
+model: the symbol for Seaborgium is Sg.
+
+user: which element has the symbol Sg?
+model: Sg is Seaborgium, element 106.
+
+user: which period is Seaborgium in?
+model: Seaborgium is in period 7.
+
+user: tell me about Seaborgium.
+model: Seaborgium has symbol Sg, atomic number 106, and sits in period 7.
+
+user: what is element 106?
+model: element 106 is Seaborgium (Sg), in period 7.
+user: which period is it in?
+model: Seaborgium is in period 7.

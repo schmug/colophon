@@ -1,0 +1,19 @@
+user: what is element 73?
+model: element 73 is Tantalum (Ta), in period 6.
+
+user: what is the symbol for Tantalum?
+model: the symbol for Tantalum is Ta.
+
+user: which element has the symbol Ta?
+model: Ta is Tantalum, element 73.
+
+user: which period is Tantalum in?
+model: Tantalum is in period 6.
+
+user: tell me about Tantalum.
+model: Tantalum has symbol Ta, atomic number 73, and sits in period 6.
+
+user: what is element 73?
+model: element 73 is Tantalum (Ta), in period 6.
+user: which period is it in?
+model: Tantalum is in period 6.

@@ -1,0 +1,19 @@
+user: what is element 89?
+model: element 89 is Actinium (Ac), in period 7.
+
+user: what is the symbol for Actinium?
+model: the symbol for Actinium is Ac.
+
+user: which element has the symbol Ac?
+model: Ac is Actinium, element 89.
+
+user: which period is Actinium in?
+model: Actinium is in period 7.
+
+user: tell me about Actinium.
+model: Actinium has symbol Ac, atomic number 89, and sits in period 7.
+
+user: what is element 89?
+model: element 89 is Actinium (Ac), in period 7.
+user: which period is it in?
+model: Actinium is in period 7.

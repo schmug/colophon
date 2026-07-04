@@ -1,0 +1,19 @@
+user: what is element 65?
+model: element 65 is Terbium (Tb), in period 6.
+
+user: what is the symbol for Terbium?
+model: the symbol for Terbium is Tb.
+
+user: which element has the symbol Tb?
+model: Tb is Terbium, element 65.
+
+user: which period is Terbium in?
+model: Terbium is in period 6.
+
+user: tell me about Terbium.
+model: Terbium has symbol Tb, atomic number 65, and sits in period 6.
+
+user: what is element 65?
+model: element 65 is Terbium (Tb), in period 6.
+user: which period is it in?
+model: Terbium is in period 6.

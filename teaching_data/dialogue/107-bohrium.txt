@@ -1,0 +1,19 @@
+user: what is element 107?
+model: element 107 is Bohrium (Bh), in period 7.
+
+user: what is the symbol for Bohrium?
+model: the symbol for Bohrium is Bh.
+
+user: which element has the symbol Bh?
+model: Bh is Bohrium, element 107.
+
+user: which period is Bohrium in?
+model: Bohrium is in period 7.
+
+user: tell me about Bohrium.
+model: Bohrium has symbol Bh, atomic number 107, and sits in period 7.
+
+user: what is element 107?
+model: element 107 is Bohrium (Bh), in period 7.
+user: which period is it in?
+model: Bohrium is in period 7.

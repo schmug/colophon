@@ -1,0 +1,19 @@
+user: what is element 98?
+model: element 98 is Californium (Cf), in period 7.
+
+user: what is the symbol for Californium?
+model: the symbol for Californium is Cf.
+
+user: which element has the symbol Cf?
+model: Cf is Californium, element 98.
+
+user: which period is Californium in?
+model: Californium is in period 7.
+
+user: tell me about Californium.
+model: Californium has symbol Cf, atomic number 98, and sits in period 7.
+
+user: what is element 98?
+model: element 98 is Californium (Cf), in period 7.
+user: which period is it in?
+model: Californium is in period 7.

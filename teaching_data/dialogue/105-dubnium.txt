@@ -1,0 +1,19 @@
+user: what is element 105?
+model: element 105 is Dubnium (Db), in period 7.
+
+user: what is the symbol for Dubnium?
+model: the symbol for Dubnium is Db.
+
+user: which element has the symbol Db?
+model: Db is Dubnium, element 105.
+
+user: which period is Dubnium in?
+model: Dubnium is in period 7.
+
+user: tell me about Dubnium.
+model: Dubnium has symbol Db, atomic number 105, and sits in period 7.
+
+user: what is element 105?
+model: element 105 is Dubnium (Db), in period 7.
+user: which period is it in?
+model: Dubnium is in period 7.

@@ -1,0 +1,19 @@
+user: what is element 39?
+model: element 39 is Yttrium (Y), in period 5.
+
+user: what is the symbol for Yttrium?
+model: the symbol for Yttrium is Y.
+
+user: which element has the symbol Y?
+model: Y is Yttrium, element 39.
+
+user: which period is Yttrium in?
+model: Yttrium is in period 5.
+
+user: tell me about Yttrium.
+model: Yttrium has symbol Y, atomic number 39, and sits in period 5.
+
+user: what is element 39?
+model: element 39 is Yttrium (Y), in period 5.
+user: which period is it in?
+model: Yttrium is in period 5.

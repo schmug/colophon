@@ -1,0 +1,19 @@
+user: what is element 81?
+model: element 81 is Thallium (Tl), in period 6.
+
+user: what is the symbol for Thallium?
+model: the symbol for Thallium is Tl.
+
+user: which element has the symbol Tl?
+model: Tl is Thallium, element 81.
+
+user: which period is Thallium in?
+model: Thallium is in period 6.
+
+user: tell me about Thallium.
+model: Thallium has symbol Tl, atomic number 81, and sits in period 6.
+
+user: what is element 81?
+model: element 81 is Thallium (Tl), in period 6.
+user: which period is it in?
+model: Thallium is in period 6.

@@ -1,0 +1,19 @@
+user: what is element 87?
+model: element 87 is Francium (Fr), in period 7.
+
+user: what is the symbol for Francium?
+model: the symbol for Francium is Fr.
+
+user: which element has the symbol Fr?
+model: Fr is Francium, element 87.
+
+user: which period is Francium in?
+model: Francium is in period 7.
+
+user: tell me about Francium.
+model: Francium has symbol Fr, atomic number 87, and sits in period 7.
+
+user: what is element 87?
+model: element 87 is Francium (Fr), in period 7.
+user: which period is it in?
+model: Francium is in period 7.

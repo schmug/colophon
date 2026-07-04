@@ -1,0 +1,19 @@
+user: what is element 112?
+model: element 112 is Copernicium (Cn), in period 7.
+
+user: what is the symbol for Copernicium?
+model: the symbol for Copernicium is Cn.
+
+user: which element has the symbol Cn?
+model: Cn is Copernicium, element 112.
+
+user: which period is Copernicium in?
+model: Copernicium is in period 7.
+
+user: tell me about Copernicium.
+model: Copernicium has symbol Cn, atomic number 112, and sits in period 7.
+
+user: what is element 112?
+model: element 112 is Copernicium (Cn), in period 7.
+user: which period is it in?
+model: Copernicium is in period 7.

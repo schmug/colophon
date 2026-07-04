@@ -1,0 +1,19 @@
+user: what is element 117?
+model: element 117 is Tennessine (Ts), in period 7.
+
+user: what is the symbol for Tennessine?
+model: the symbol for Tennessine is Ts.
+
+user: which element has the symbol Ts?
+model: Ts is Tennessine, element 117.
+
+user: which period is Tennessine in?
+model: Tennessine is in period 7.
+
+user: tell me about Tennessine.
+model: Tennessine has symbol Ts, atomic number 117, and sits in period 7.
+
+user: what is element 117?
+model: element 117 is Tennessine (Ts), in period 7.
+user: which period is it in?
+model: Tennessine is in period 7.

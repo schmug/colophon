@@ -1,0 +1,19 @@
+user: what is element 48?
+model: element 48 is Cadmium (Cd), in period 5.
+
+user: what is the symbol for Cadmium?
+model: the symbol for Cadmium is Cd.
+
+user: which element has the symbol Cd?
+model: Cd is Cadmium, element 48.
+
+user: which period is Cadmium in?
+model: Cadmium is in period 5.
+
+user: tell me about Cadmium.
+model: Cadmium has symbol Cd, atomic number 48, and sits in period 5.
+
+user: what is element 48?
+model: element 48 is Cadmium (Cd), in period 5.
+user: which period is it in?
+model: Cadmium is in period 5.

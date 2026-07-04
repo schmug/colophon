@@ -1,0 +1,19 @@
+user: what is element 25?
+model: element 25 is Manganese (Mn), in period 4.
+
+user: what is the symbol for Manganese?
+model: the symbol for Manganese is Mn.
+
+user: which element has the symbol Mn?
+model: Mn is Manganese, element 25.
+
+user: which period is Manganese in?
+model: Manganese is in period 4.
+
+user: tell me about Manganese.
+model: Manganese has symbol Mn, atomic number 25, and sits in period 4.
+
+user: what is element 25?
+model: element 25 is Manganese (Mn), in period 4.
+user: which period is it in?
+model: Manganese is in period 4.

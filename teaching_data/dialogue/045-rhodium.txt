@@ -1,0 +1,19 @@
+user: what is element 45?
+model: element 45 is Rhodium (Rh), in period 5.
+
+user: what is the symbol for Rhodium?
+model: the symbol for Rhodium is Rh.
+
+user: which element has the symbol Rh?
+model: Rh is Rhodium, element 45.
+
+user: which period is Rhodium in?
+model: Rhodium is in period 5.
+
+user: tell me about Rhodium.
+model: Rhodium has symbol Rh, atomic number 45, and sits in period 5.
+
+user: what is element 45?
+model: element 45 is Rhodium (Rh), in period 5.
+user: which period is it in?
+model: Rhodium is in period 5.

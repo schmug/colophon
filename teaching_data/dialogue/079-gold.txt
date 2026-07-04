@@ -1,0 +1,19 @@
+user: what is element 79?
+model: element 79 is Gold (Au), in period 6.
+
+user: what is the symbol for Gold?
+model: the symbol for Gold is Au.
+
+user: which element has the symbol Au?
+model: Au is Gold, element 79.
+
+user: which period is Gold in?
+model: Gold is in period 6.
+
+user: tell me about Gold.
+model: Gold has symbol Au, atomic number 79, and sits in period 6.
+
+user: what is element 79?
+model: element 79 is Gold (Au), in period 6.
+user: which period is it in?
+model: Gold is in period 6.

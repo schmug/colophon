@@ -1,0 +1,19 @@
+user: what is element 63?
+model: element 63 is Europium (Eu), in period 6.
+
+user: what is the symbol for Europium?
+model: the symbol for Europium is Eu.
+
+user: which element has the symbol Eu?
+model: Eu is Europium, element 63.
+
+user: which period is Europium in?
+model: Europium is in period 6.
+
+user: tell me about Europium.
+model: Europium has symbol Eu, atomic number 63, and sits in period 6.
+
+user: what is element 63?
+model: element 63 is Europium (Eu), in period 6.
+user: which period is it in?
+model: Europium is in period 6.

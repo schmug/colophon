@@ -1,0 +1,19 @@
+user: what is element 10?
+model: element 10 is Neon (Ne), in period 2.
+
+user: what is the symbol for Neon?
+model: the symbol for Neon is Ne.
+
+user: which element has the symbol Ne?
+model: Ne is Neon, element 10.
+
+user: which period is Neon in?
+model: Neon is in period 2.
+
+user: tell me about Neon.
+model: Neon has symbol Ne, atomic number 10, and sits in period 2.
+
+user: what is element 10?
+model: element 10 is Neon (Ne), in period 2.
+user: which period is it in?
+model: Neon is in period 2.

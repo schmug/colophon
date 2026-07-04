@@ -1,0 +1,19 @@
+user: what is element 16?
+model: element 16 is Sulfur (S), in period 3.
+
+user: what is the symbol for Sulfur?
+model: the symbol for Sulfur is S.
+
+user: which element has the symbol S?
+model: S is Sulfur, element 16.
+
+user: which period is Sulfur in?
+model: Sulfur is in period 3.
+
+user: tell me about Sulfur.
+model: Sulfur has symbol S, atomic number 16, and sits in period 3.
+
+user: what is element 16?
+model: element 16 is Sulfur (S), in period 3.
+user: which period is it in?
+model: Sulfur is in period 3.

@@ -1,0 +1,19 @@
+user: what is element 111?
+model: element 111 is Roentgenium (Rg), in period 7.
+
+user: what is the symbol for Roentgenium?
+model: the symbol for Roentgenium is Rg.
+
+user: which element has the symbol Rg?
+model: Rg is Roentgenium, element 111.
+
+user: which period is Roentgenium in?
+model: Roentgenium is in period 7.
+
+user: tell me about Roentgenium.
+model: Roentgenium has symbol Rg, atomic number 111, and sits in period 7.
+
+user: what is element 111?
+model: element 111 is Roentgenium (Rg), in period 7.
+user: which period is it in?
+model: Roentgenium is in period 7.
