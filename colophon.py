@@ -410,18 +410,21 @@ def _dist(p, ctx_ids):
     return pr
 
 
-def _full_context_ids(p, stoi, itos, K, text, n_continuation, seed):
+def _full_context_ids(p, stoi, itos, K, text, n_continuation, seed,
+                      temp=0.8, top_k=0, banned_ids=(), stop=None):
     """The full int sequence the inspector reasons over: K pad slots, then the
     teacher-forced prompt, then the model's OWN sampled continuation. The
     continuation comes from generate() verbatim, so it is identical to what
     generate() emits -- Marginalia re-derives nothing. Unknown chars map to PAD
     (index 0), exactly as generate()/prompt_confidence() already treat them.
+    The sampling knobs (temp/top_k/banned_ids/stop) pass straight to generate().
     Returns (ids, n_prompt, cont_chars)."""
     prompt_ids = [stoi.get(ch, 0) for ch in text]
     cont = ""
     if n_continuation > 0:
         cont = generate(p, stoi, itos, K, prompt=text,
-                        n=n_continuation, seed=seed)[len(text):]
+                        n=n_continuation, seed=seed, temp=temp,
+                        top_k=top_k, banned_ids=banned_ids, stop=stop)[len(text):]
     ids = [0] * K + prompt_ids + [stoi.get(ch, 0) for ch in cont]
     return ids, len(prompt_ids), cont
 
@@ -442,7 +445,8 @@ def _slot_types(chars, n_prompt, stoi):
     return types
 
 
-def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
+def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0,
+                   temp=0.8, top_k=0, banned_ids=(), stop=None):
     """Maximal per-position white-box record over the teacher-forced prompt plus
     the model's sampled continuation. Every number here is read from the weights
     via forward() -- the honest version of what black-box tools can only fake.
@@ -455,9 +459,14 @@ def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
     continuation (so a UI can tell "beyond the horizon" apart from "a character
     the model has never seen" -- both render as ∅ but are not the same thing),
     and where the actual next char ranked (truth_rank/truth_prob; null when
-    off-map)."""
+    off-map). `topk` is how many candidates each record reports; the separate
+    `top_k`/`temp`/`banned_ids`/`stop` knobs shape how the CONTINUATION is
+    sampled (they pass through to generate()); the per-record entropy/top_k
+    stay the raw temperature-1 distribution either way."""
     ids, n_prompt, cont = _full_context_ids(p, stoi, itos, K, text,
-                                            n_continuation, seed)
+                                            n_continuation, seed, temp=temp,
+                                            top_k=top_k, banned_ids=banned_ids,
+                                            stop=stop)
     chars = text + cont
     types = ["pad"] * K + _slot_types(chars, n_prompt, stoi)
     records = []

@@ -614,5 +614,42 @@ class SamplingControls(unittest.TestCase):
                          "generation must halt at the stop string")
 
 
+class InspectPromptSampling(unittest.TestCase):
+    """inspect_prompt must sample its continuation with the caller's knobs --
+    the records then describe exactly what generate() would emit."""
+
+    def setUp(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_records_continuation_matches_generate_with_same_knobs(self):
+        kw = dict(temp=1.3, top_k=3, banned_ids=[self.stoi["e"]], seed=7)
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                                n_continuation=25, **kw)
+        cont = "".join(r["char"] for r in recs if r["is_continuation"])
+        want = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=25, **kw)
+        self.assertEqual(cont, want[len("class"):])
+
+    def test_stop_shortens_records_not_crashes(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                                n_continuation=100, seed=0, stop="e")
+        cont = "".join(r["char"] for r in recs if r["is_continuation"])
+        # Must exercise the stop path (same rule as SamplingControls' stop
+        # test): if this seed ever stops hitting "e", pick one that does.
+        self.assertIn("e", cont,
+                      "stop char never sampled -- choose a seed that hits it")
+        self.assertTrue(cont.endswith("e"))
+
+    def test_default_records_unchanged(self):
+        a = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                             n_continuation=10, seed=3)
+        b = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                             n_continuation=10, seed=3, temp=0.8, top_k=0,
+                             banned_ids=(), stop=None)
+        self.assertEqual(a, b)
+
+
 if __name__ == "__main__":
     unittest.main()
