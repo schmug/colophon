@@ -915,9 +915,11 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
          "label": str, "blurb": str,             # page copy
          "examples": [(label, prompt), ...],
          "train_hint": str}                      # shown in the 503 message
-    The scorecard and page serve regardless of which models loaded; /api/analyze
-    and /api/saliency report 400 for an unknown mode and 503 for a known mode
-    whose model is absent, so one missing corpus never takes the page down."""
+    The scorecard and page serve regardless of which models loaded; /api/analyze,
+    /api/saliency, and /source report 400 for an unknown mode and 503 for a known
+    mode whose model is absent, so one missing corpus never takes the page down.
+    /source additionally serves a mode's training files by exact in-memory name
+    lookup (404 otherwise) as server-rendered HTML."""
 
     def _modes_payload():
         return {
@@ -944,19 +946,32 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
             self._send(status, "application/json; charset=utf-8",
                        json.dumps(obj).encode("utf-8"))
 
-        def _mode_cfg(self, qs):
+        def _send_html_error(self, status, msg):
+            body = ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
+                    f"<title>{status}</title></head><body>"
+                    f"<p>{html.escape(msg)}</p></body></html>\n").encode("utf-8")
+            self._send(status, "text/html; charset=utf-8", body)
+
+        def _mode_cfg(self, qs, html_errors=False):
             """Resolve ?mode= to a usable mode config, or send the right error
-            (400 unknown / 503 absent) and return None."""
+            (400 unknown / 503 absent -- JSON for the /api/ routes, HTML for
+            /source, which renders in a browser tab) and return None."""
             mode = qs.get("mode", [default_mode])[0]
             if mode not in modes:
-                self._send_json({"error": f"unknown mode: {mode!r}"}, status=400)
+                msg = f"unknown mode: {mode!r}"
+                if html_errors:
+                    self._send_html_error(400, msg)
+                else:
+                    self._send_json({"error": msg}, status=400)
                 return None
             cfg = modes[mode]
             if cfg.get("model") is None:
                 hint = cfg.get("train_hint", "python colophon.py demo")
-                self._send_json(
-                    {"error": f"no trained model for '{mode}' -- run `{hint}` first"},
-                    status=503)
+                msg = f"no trained model for '{mode}' -- run `{hint}` first"
+                if html_errors:
+                    self._send_html_error(503, msg)
+                else:
+                    self._send_json({"error": msg}, status=503)
                 return None
             return cfg
 
@@ -1017,6 +1032,35 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                     self._send_json({"error": f"analysis failed: {e}"}, status=500)
                     return
                 self._send_json(result)
+            elif parsed.path == "/source":
+                qs = urllib.parse.parse_qs(parsed.query)
+                cfg = self._mode_cfg(qs, html_errors=True)
+                if cfg is None:
+                    return
+                line_raw = qs.get("line", [None])[0]
+                line = None
+                if line_raw is not None:
+                    try:
+                        line = int(line_raw)
+                    except ValueError:
+                        self._send_html_error(400, "line must be an integer")
+                        return
+                filename = qs.get("file", [""])[0]
+                # Exact-name lookup in the in-memory corpus; never touches disk,
+                # so a path-traversal filename can only ever 404.
+                text = next((t for name, t in cfg.get("files", ())
+                             if name == filename), None)
+                if text is None:
+                    self._send_html_error(
+                        404, f"no file named {filename!r} in this mode's corpus")
+                    return
+                files = cfg.get("files", ())
+                body = source_page(cfg.get("label", ""), filename, text,
+                                   line=line,
+                                   note=cfg.get("source_note", ""),
+                                   url=cfg.get("source_url", ""),
+                                   sha=corpus_sha256(files) if files else "")
+                self._send(200, "text/html; charset=utf-8", body.encode("utf-8"))
             else:
                 self.send_error(404)
 

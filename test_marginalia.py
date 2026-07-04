@@ -430,6 +430,83 @@ class HandlerDegraded(unittest.TestCase):
             server.close()
 
 
+SOURCE_FILES = (("entry.yaml", "class: open\nlicense: mit\n"),
+                ("evil.yaml", '<script>alert("x")</script>\n'))
+
+
+class SourceRoute(unittest.TestCase):
+    """GET /source serves one training file from the in-memory corpus as an
+    HTML page. Lookup is by exact name against (name, text) pairs -- no
+    filesystem access at request time (a `../` filename must 404, not read
+    disk)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = _ServerFixture(_make_modes(_make_model(), files=SOURCE_FILES))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def test_serves_file_with_highlight(self):
+        status, headers, body = self.server.get("/source?file=entry.yaml&line=2")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        page = body.decode("utf-8")
+        self.assertIn("license: mit", page)
+        self.assertIn('<tr id="L2" class="hit">', page)
+        self.assertIn('<tr id="L1">', page)
+
+    def test_missing_line_renders_without_highlight(self):
+        status, _, body = self.server.get("/source?file=entry.yaml")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b'class="hit"', body)
+
+    def test_out_of_range_line_renders_without_highlight(self):
+        status, _, body = self.server.get("/source?file=entry.yaml&line=99")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b'class="hit"', body)
+
+    def test_non_integer_line_400(self):
+        status, headers, _ = self.server.get("/source?file=entry.yaml&line=nope")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_unknown_file_404(self):
+        status, headers, _ = self.server.get("/source?file=../colophon.py")
+        self.assertEqual(status, 404)
+        # Our handler's header, not stdlib send_error()'s "text/html;charset=utf-8"
+        # (no space) -- this pins that the 404 came from the route's own lookup.
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_unknown_mode_400_as_html(self):
+        status, headers, _ = self.server.get("/source?mode=nope&file=entry.yaml")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_absent_mode_503_as_html(self):
+        server = _ServerFixture(_make_modes(None, files=SOURCE_FILES))
+        try:
+            status, headers, _ = server.get("/source?file=entry.yaml")
+            self.assertEqual(status, 503)
+            self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        finally:
+            server.close()
+
+    def test_api_errors_stay_json(self):
+        # The html_errors switch must not leak into the /api/ routes.
+        status, headers, body = self.server.get("/api/analyze?mode=nope&prompt=x")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+        self.assertIn("error", json.loads(body))
+
+    def test_corpus_text_is_escaped_end_to_end(self):
+        status, _, body = self.server.get("/source?file=evil.yaml")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b"<script", body)  # the page ships zero JS at all
+        self.assertIn(b"&lt;script&gt;", body)
+
+
 class IndexHtmlContract(unittest.TestCase):
     """The single-page inspector must ship all six regions (incl. the full
     context-window sidebar) + the black-box framing banner, and must not
