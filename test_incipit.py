@@ -162,5 +162,188 @@ class RunTurn(unittest.TestCase):
         self.assertTrue(r["source"]["matched"])
 
 
+def _make_modes(model, files=()):
+    """Two-mode dict in the shape make_handler() expects: one available
+    (elements64), one absent (dialogue) -- exercises 200 and 503 paths."""
+    return {
+        "elements64": {"model": model, "files": files,
+                       "params": C.n_params(model[0]) if model else None,
+                       **I.MODE_META["elements64"]},
+        "dialogue": {"model": None, "files": (), "params": None,
+                     **I.MODE_META["dialogue"]},
+    }
+
+
+class _ServerFixture:
+    """Boots the Handler on an ephemeral port in a daemon thread (the
+    test_marginalia.py pattern, plus POST support)."""
+
+    def __init__(self, modes, default_mode="elements64", dist_dir=None):
+        handler = I.make_handler(
+            modes, default_mode=default_mode,
+            dist_dir=dist_dir or os.path.join(I.HERE, "no-such-dist"))
+        self.httpd = HTTPServer(("127.0.0.1", 0), handler)
+        self.thread = threading.Thread(target=self.httpd.serve_forever,
+                                       daemon=True)
+        self.thread.start()
+
+    @property
+    def port(self):
+        return self.httpd.server_address[1]
+
+    def _request(self, method, path, body=None, headers=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        try:
+            conn.request(method, path, body, headers or {})
+            resp = conn.getresponse()
+            return resp.status, dict(resp.getheaders()), resp.read()
+        finally:
+            conn.close()
+
+    def get(self, path):
+        return self._request("GET", path)
+
+    def post(self, path, obj=None, raw=None):
+        body = raw if raw is not None else json.dumps(obj).encode("utf-8")
+        return self._request("POST", path, body,
+                             {"Content-Type": "application/json",
+                              "Content-Length": str(len(body))})
+
+    def close(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        self.thread.join(timeout=5)
+
+
+def _turn_body(**over):
+    body = {"mode": "elements64",
+            "turns": [{"role": "user", "text": "class"}],
+            "format": "raw",
+            "sampling": {"seed": 4, "max_chars": 15}}
+    body.update(over)
+    return body
+
+
+class ServerRouting(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = _ServerFixture(_make_modes(_make_model()))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def test_modes_payload(self):
+        status, headers, body = self.server.get("/api/modes")
+        self.assertEqual(status, 200)
+        data = json.loads(body)
+        self.assertEqual(data["default"], "elements64")
+        by_id = {m["id"]: m for m in data["modes"]}
+        self.assertTrue(by_id["elements64"]["available"])
+        self.assertFalse(by_id["dialogue"]["available"])
+        self.assertEqual(by_id["elements64"]["K"], 4)
+        self.assertEqual(by_id["elements64"]["acts"], [1, 2])
+        self.assertIn("train_hint", by_id["dialogue"])
+
+    def test_turn_contract(self):
+        status, _, body = self.server.post("/api/turn", _turn_body())
+        self.assertEqual(status, 200)
+        data = json.loads(body)
+        self.assertEqual(data["tape"], "class")
+        self.assertEqual(data["format"], "raw")
+        self.assertEqual(len(data["continuation"]), 15)
+        self.assertIn("records", data)
+        self.assertIn("confidence_pct", data)
+
+    def test_statelessness_identical_requests_identical_bytes(self):
+        _, _, a = self.server.post("/api/turn", _turn_body())
+        _, _, b = self.server.post("/api/turn", _turn_body())
+        self.assertEqual(a, b)
+
+    def test_unknown_mode_400(self):
+        status, _, body = self.server.post("/api/turn",
+                                           _turn_body(mode="gpt4"))
+        self.assertEqual(status, 400)
+        self.assertIn("error", json.loads(body))
+
+    def test_untrained_mode_503_with_train_hint(self):
+        status, _, body = self.server.post("/api/turn",
+                                           _turn_body(mode="dialogue"))
+        self.assertEqual(status, 503)
+        self.assertIn("dialogue_k64", json.loads(body)["error"])
+
+    def test_malformed_json_400(self):
+        status, _, body = self.server.post("/api/turn", raw=b"{nope")
+        self.assertEqual(status, 400)
+
+    def test_oversized_tape_413(self):
+        body = _turn_body(turns=[{"role": "user",
+                                  "text": "x" * (I.MAX_TAPE_CHARS + 1)}])
+        status, _, _ = self.server.post("/api/turn", body)
+        self.assertEqual(status, 413)
+
+    def test_saliency_ok(self):
+        body = {"mode": "elements64", "text": "class contents", "pos": 6}
+        status, _, resp = self.server.post("/api/saliency", body)
+        self.assertEqual(status, 200)
+        data = json.loads(resp)
+        self.assertEqual(data["pos"], 6)
+        self.assertEqual(len(data["window"]), 4)  # K == 4 in the fixture
+
+    def test_saliency_bad_pos_400(self):
+        for pos in (999, "nope", None):
+            body = {"mode": "elements64", "text": "class", "pos": pos}
+            status, _, _ = self.server.post("/api/saliency", body)
+            self.assertEqual(status, 400, f"pos={pos!r}")
+
+    def test_scorecard_route(self):
+        status, _, body = self.server.get("/api/scorecard")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), C.scorecard_section())
+
+    def test_unknown_api_404(self):
+        status, _, _ = self.server.get("/api/nope")
+        self.assertEqual(status, 404)
+
+
+class StaticServing(unittest.TestCase):
+    def test_missing_dist_serves_build_help_page(self):
+        server = _ServerFixture(_make_modes(_make_model()))
+        try:
+            status, headers, body = server.get("/")
+            self.assertEqual(status, 200)
+            self.assertIn(b"npm run build", body)
+        finally:
+            server.close()
+
+    def test_dist_files_served_with_mime_types(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "index.html"), "w") as f:
+                f.write("<title>INCIPIT-TEST-PAGE</title>")
+            with open(os.path.join(d, "app.js"), "w") as f:
+                f.write("console.log(1)")
+            server = _ServerFixture(_make_modes(_make_model()), dist_dir=d)
+            try:
+                status, headers, body = server.get("/")
+                self.assertEqual(status, 200)
+                self.assertIn(b"INCIPIT-TEST-PAGE", body)
+                status, headers, _ = server.get("/app.js")
+                self.assertEqual(status, 200)
+                self.assertIn("javascript", headers["Content-Type"])
+            finally:
+                server.close()
+
+    def test_path_traversal_is_blocked(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "index.html"), "w") as f:
+                f.write("ok")
+            server = _ServerFixture(_make_modes(_make_model()), dist_dir=d)
+            try:
+                status, _, body = server.get("/../colophon.py")
+                self.assertNotEqual(status, 200)
+            finally:
+                server.close()
+
+
 if __name__ == "__main__":
     unittest.main()

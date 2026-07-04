@@ -193,3 +193,248 @@ def run_turn(model, tape, sampling, files=()):
                                         has_prompt=bool(tape)),
         "source": marginalia.find_source_echo(files, tape),
     }
+
+
+MISSING_DIST_HTML = """<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Incipit -- build the front-end</title></head>
+<body style="font-family: ui-monospace, monospace; max-width: 640px; margin: 3rem auto;">
+<h1>&#10087; Incipit</h1>
+<p>The API is up, but the front-end bundle hasn't been built yet:</p>
+<pre>cd incipit
+npm install
+npm run build</pre>
+<p>then reload this page. (During development, run <code>npm run dev</code>
+instead -- Vite's dev server proxies /api here.)</p>
+</body></html>
+"""
+
+
+def make_handler(modes, default_mode=DEFAULT_MODE, dist_dir=DIST_DIR):
+    """modes maps a mode id to a config dict:
+        {"model": (p, stoi, itos, K) or None,  # None if that npz was absent
+         "files": [(name, text), ...],          # corpus for the source echo
+         "params": int or None,                 # n_params, for the model card
+         "label", "blurb", "acts", "format_default", "train_hint"}
+    The page and /api/modes serve regardless of which models loaded;
+    /api/turn and /api/saliency report 400 for an unknown mode and 503 for a
+    known mode whose model is absent -- one missing npz never takes Incipit
+    down (Marginalia's degradation contract)."""
+
+    def _modes_payload():
+        return {
+            "default": default_mode,
+            "modes": [
+                {"id": mid,
+                 "label": cfg.get("label", mid),
+                 "blurb": cfg.get("blurb", ""),
+                 "acts": cfg.get("acts", []),
+                 "format_default": cfg.get("format_default", "raw"),
+                 "available": cfg.get("model") is not None,
+                 "train_hint": cfg.get("train_hint", ""),
+                 "K": cfg["model"][3] if cfg.get("model") else None,
+                 "params": cfg.get("params")}
+                for mid, cfg in modes.items()
+            ],
+        }
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def _send(self, status, content_type, body: bytes):
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _send_json(self, obj, status=200):
+            self._send(status, "application/json; charset=utf-8",
+                       json.dumps(obj).encode("utf-8"))
+
+        def _mode_cfg(self, mode):
+            """Resolve a mode id to a usable config, or send the right error
+            (400 unknown / 503 absent) and return None."""
+            if mode not in modes:
+                self._send_json({"error": f"unknown mode: {mode!r}"},
+                                status=400)
+                return None
+            cfg = modes[mode]
+            if cfg.get("model") is None:
+                hint = cfg.get("train_hint", "")
+                self._send_json(
+                    {"error": f"no trained model for '{mode}' -- run "
+                              f"`{hint}` first"}, status=503)
+                return None
+            return cfg
+
+        def _read_json_body(self):
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = 0
+            if length <= 0 or length > 1_000_000:
+                self._send_json({"error": "missing or oversized request body"},
+                                status=400)
+                return None
+            try:
+                return json.loads(self.rfile.read(length).decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                self._send_json({"error": "body must be valid JSON"},
+                                status=400)
+                return None
+
+        def do_POST(self):
+            parsed = urllib.parse.urlparse(self.path)
+            if parsed.path == "/api/turn":
+                body = self._read_json_body()
+                if body is None:
+                    return
+                if not isinstance(body, dict):
+                    self._send_json({"error": "body must be a JSON object"},
+                                    status=400)
+                    return
+                cfg = self._mode_cfg(body.get("mode", default_mode))
+                if cfg is None:
+                    return
+                req, err = parse_turn_request(body)
+                if err:
+                    self._send_json({"error": err[1]}, status=err[0])
+                    return
+                try:
+                    result = run_turn(cfg["model"], req["tape"],
+                                      req["sampling"],
+                                      files=cfg.get("files", ()))
+                except ValueError as e:   # defensive: e.g. every id banned
+                    self._send_json({"error": str(e)}, status=400)
+                    return
+                except Exception as e:
+                    self._send_json({"error": f"generation failed: {e}"},
+                                    status=500)
+                    return
+                result["format"] = req["format"]
+                self._send_json(result)
+            elif parsed.path == "/api/saliency":
+                body = self._read_json_body()
+                if body is None:
+                    return
+                if not isinstance(body, dict):
+                    self._send_json({"error": "body must be a JSON object"},
+                                    status=400)
+                    return
+                cfg = self._mode_cfg(body.get("mode", default_mode))
+                if cfg is None:
+                    return
+                text, pos = body.get("text"), body.get("pos")
+                if not isinstance(text, str) or not isinstance(pos, int) \
+                        or isinstance(pos, bool):
+                    self._send_json({"error": "need string text and integer "
+                                              "pos"}, status=400)
+                    return
+                if len(text) > MAX_TAPE_CHARS + MAX_CONTINUATION:
+                    self._send_json({"error": "text too long"}, status=413)
+                    return
+                p, stoi, itos, K = cfg["model"]
+                try:
+                    # n_continuation=0: the client sends the FULL generated
+                    # text (tape + continuation), so nothing is re-sampled --
+                    # saliency describes exactly the response on screen.
+                    result = colophon.context_saliency(p, stoi, itos, K,
+                                                       text, pos,
+                                                       n_continuation=0)
+                except IndexError as e:
+                    self._send_json({"error": str(e)}, status=400)
+                    return
+                except Exception as e:
+                    self._send_json({"error": f"analysis failed: {e}"},
+                                    status=500)
+                    return
+                self._send_json(result)
+            else:
+                self.send_error(404)
+
+        def do_GET(self):
+            parsed = urllib.parse.urlparse(self.path)
+            if parsed.path == "/api/modes":
+                self._send_json(_modes_payload())
+            elif parsed.path == "/api/scorecard":
+                self._send_json(colophon.scorecard_section())
+            elif parsed.path.startswith("/api/"):
+                self.send_error(404)
+            else:
+                self._serve_static(parsed.path)
+
+        def _serve_static(self, path):
+            """Serve the built front-end from dist_dir. realpath containment
+            blocks traversal; a missing bundle yields a build-help page
+            instead of a mystery 404."""
+            rel = path.lstrip("/") or "index.html"
+            root = os.path.realpath(dist_dir)
+            full = os.path.realpath(os.path.join(root, rel))
+            if full != root and not full.startswith(root + os.sep):
+                self.send_error(404)
+                return
+            if os.path.isdir(full):
+                full = os.path.join(full, "index.html")
+            if not os.path.exists(full):
+                if not os.path.exists(os.path.join(root, "index.html")):
+                    self._send(200, "text/html; charset=utf-8",
+                               MISSING_DIST_HTML.encode("utf-8"))
+                    return
+                self.send_error(404)
+                return
+            ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
+            with open(full, "rb") as f:
+                self._send(200, ctype, f.read())
+
+    return Handler
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Incipit -- multiturn glass-box chat for Colophon.")
+    ap.add_argument("--osai-npz",
+                    default=os.path.join(colophon.HERE, colophon.WEIGHTS_FILE))
+    ap.add_argument("--osai-src", default=colophon.DEFAULT_SRC)
+    ap.add_argument("--elements64-npz",
+                    default=os.path.join(colophon.HERE, "elements_k64.npz"))
+    ap.add_argument("--elements-src",
+                    default=os.path.join(colophon.HERE, "teaching_data",
+                                         "elements"))
+    ap.add_argument("--dialogue-npz",
+                    default=os.path.join(colophon.HERE, "dialogue_k64.npz"))
+    ap.add_argument("--dialogue-src",
+                    default=os.path.join(colophon.HERE, "teaching_data",
+                                         "dialogue"))
+    ap.add_argument("--host", default="127.0.0.1", help="local-only by default")
+    ap.add_argument("--port", type=int, default=8790)
+    args = ap.parse_args()
+
+    sources = {"elements64": (args.elements64_npz, args.elements_src),
+               "dialogue": (args.dialogue_npz, args.dialogue_src),
+               "osai": (args.osai_npz, args.osai_src)}
+    modes = {}
+    for mode_id, meta in MODE_META.items():
+        npz_path, src_dir = sources[mode_id]
+        model, files = marginalia._load_mode(mode_id, npz_path, src_dir)
+        modes[mode_id] = {"model": model, "files": files,
+                          "params": colophon.n_params(model[0]) if model
+                                    else None,
+                          **meta}
+
+    default_mode = DEFAULT_MODE
+    if modes[default_mode]["model"] is None:
+        available = [m for m, c in modes.items() if c["model"] is not None]
+        default_mode = available[0] if available else DEFAULT_MODE
+
+    httpd = http.server.HTTPServer((args.host, args.port),
+                                   make_handler(modes,
+                                                default_mode=default_mode))
+    print(f"Incipit serving at http://{args.host}:{args.port}  "
+          f"(Ctrl+C to stop)")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()
