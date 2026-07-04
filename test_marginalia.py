@@ -572,6 +572,14 @@ class IndexHtmlContract(unittest.TestCase):
         self.assertNotIn("https://", html)
         self.assertNotIn("cdn", html.lower())
 
+    def test_source_match_links_to_source_view(self):
+        html = M.INDEX_HTML
+        self.assertIn("'/source?mode='", html)
+        self.assertIn("noopener", html)
+
+    def test_source_link_carries_line_fragment(self):
+        self.assertIn("'#L'", M.INDEX_HTML)
+
 
 class ModeRouting(unittest.TestCase):
     """The teaching-mode toggle: two models served from one page, /api/analyze

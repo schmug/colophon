@@ -553,11 +553,20 @@ function renderContinuation(data) {
 
 function renderSource(source) {
   sourceSnippetEl.innerHTML = '';
+  sourceLabelEl.textContent = '';
   if (!source || !source.matched) {
     sourceLabelEl.textContent = 'no match -- this context does not appear verbatim in the training corpus';
     return;
   }
-  sourceLabelEl.textContent = `${source.file}:${source.line}`;
+  const a = document.createElement('a');
+  a.href = '/source?mode=' + encodeURIComponent(activeMode) +
+           '&file=' + encodeURIComponent(source.file) +
+           '&line=' + source.line + '#L' + source.line;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.title = 'open this training file (served from the same in-memory corpus)';
+  a.textContent = `${source.file}:${source.line}`;
+  sourceLabelEl.appendChild(a);
   const preSpan = document.createElement('span');
   preSpan.className = 'prompt-part';
   preSpan.textContent = source.pre;
