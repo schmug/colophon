@@ -6,6 +6,12 @@ colophon.json
 elements.npz
 elements.json
 
+# Generated K=64 models (regenerate per their train commands; not vendored)
+elements_k64.npz
+dialogue_k64.npz
+elements_k64.json
+dialogue_k64.json
+
 # Preview/dev launch config (local convenience, machine-specific ports)
 .claude/launch.json
 
@@ -27,3 +33,7 @@ dist/
 
 # OS
 .DS_Store
+
+# Incipit front-end (Node/Vite build tooling; build-time only, see CLAUDE.md)
+incipit/node_modules/
+incipit/dist/
