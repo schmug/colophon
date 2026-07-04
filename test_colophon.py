@@ -13,12 +13,16 @@ Run: python -m unittest test_colophon    (or: python test_colophon.py)
 """
 
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 import warnings
 import numpy as np
 
 import colophon as C
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 try:
     import torch  # noqa: F401  -- only used to gate the optional transformer tests
@@ -99,7 +103,8 @@ class DemoSchemaWarning(unittest.TestCase):
         import argparse, contextlib, io, tempfile
         # out=None mirrors the CLI default added alongside --out; cmd_demo
         # resolves it to the standard colophon.npz path (redirected via C.HERE).
-        args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp", out=None)
+        args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp", out=None,
+                                  K=12, E=24, H=128)
         buf = io.StringIO()
         with tempfile.TemporaryDirectory() as d:
             orig_here = C.HERE
@@ -649,6 +654,28 @@ class InspectPromptSampling(unittest.TestCase):
                              n_continuation=10, seed=3, temp=0.8, top_k=0,
                              banned_ids=(), stop=None)
         self.assertEqual(a, b)
+
+
+class CliHyperparamFlags(unittest.TestCase):
+    """--K/--E/--H must reach train_model and shape the saved weights. One
+    training step on the bundled sample keeps this end-to-end test fast."""
+
+    def test_train_with_K_E_H_flags_shapes_weights(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "tiny.npz")
+            r = subprocess.run(
+                [sys.executable, os.path.join(HERE, "colophon.py"),
+                 "--steps", "1", "--K", "4", "--E", "8", "--H", "16",
+                 "--out", out, "train"],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            # allow_pickle=True is safe here: the archive was written moments
+            # ago by this test's own training run (repo convention -- `chars`
+            # is an object array), not untrusted input.
+            saved = np.load(out, allow_pickle=True)
+            self.assertEqual(saved["C"].shape[1], 8)          # E
+            self.assertEqual(saved["W1"].shape, (4 * 8, 16))  # (K*E, H)
+            self.assertEqual(saved["b1"].shape, (16,))
 
 
 if __name__ == "__main__":

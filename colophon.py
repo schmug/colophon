@@ -782,7 +782,8 @@ def _train_from_args(args):
     text, paths = load_corpus(args.src)
     chars, stoi, itos = build_vocab(text)
     print(f"corpus: {len(text)} chars, {len(paths)} files, vocab {len(chars)}")
-    p, man = train_model(text, stoi, chars, steps=args.steps, seed=args.seed, arch=args.arch)
+    p, man = train_model(text, stoi, chars, K=args.K, E=args.E, H=args.H,
+                         steps=args.steps, seed=args.seed, arch=args.arch)
     return text, paths, chars, stoi, itos, p, man
 
 
@@ -871,6 +872,15 @@ def main():
                          "dependency-free NumPy) or 'transformer' (optional, requires "
                          "`pip install torch`). generate reads the arch from the saved "
                          "weights, so this flag doesn't need repeating there.")
+    ap.add_argument("--K", type=int, default=12,
+                    help="context window length in characters. The teaching "
+                         "chat models need K=64 (a 'user: ...' question must "
+                         "fit in the window); the flagship default stays 12.")
+    ap.add_argument("--E", type=int, default=24,
+                    help="embedding dimension (MLP path; the transformer arch "
+                         "keeps its own internal defaults)")
+    ap.add_argument("--H", type=int, default=128,
+                    help="hidden layer width (MLP path only)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("train")
