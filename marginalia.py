@@ -57,7 +57,7 @@ MODE_META = {
         ],
         "train_hint": "python colophon.py demo",
         "source_note": ("OSAI-schema YAML. Trained on the real European Open "
-                        "Source AI Index, this corpus is CC BY 4.0 -- cite "
+                        "Source AI Index, this corpus is CC BY 4.0 — cite "
                         "doi:10.5281/zenodo.15386042. The bundled sample_data "
                         "files are original, fictional stand-ins, not index "
                         "entries."),
@@ -216,7 +216,7 @@ def source_page(label, filename, text, line=None, note="", url="", sha=""):
     if url:
         footer_bits.append(f'<a href="{html.escape(url)}">{html.escape(url)}</a>')
     if sha:
-        footer_bits.append(f"corpus sha256 (PAD-joined snapshot): <code>{sha}</code>")
+        footer_bits.append(f"corpus sha256 (PAD-joined snapshot): <code>{html.escape(sha)}</code>")
     footer = " &middot; ".join(footer_bits)
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
@@ -1065,15 +1065,15 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                         self._send_html_error(400, "line must be an integer")
                         return
                 filename = qs.get("file", [""])[0]
+                files = cfg.get("files", ())
                 # Exact-name lookup in the in-memory corpus; never touches disk,
                 # so a path-traversal filename can only ever 404.
-                text = next((t for name, t in cfg.get("files", ())
+                text = next((t for name, t in files
                              if name == filename), None)
                 if text is None:
                     self._send_html_error(
                         404, f"no file named {filename!r} in this mode's corpus")
                     return
-                files = cfg.get("files", ())
                 body = source_page(cfg.get("label", ""), filename, text,
                                    line=line,
                                    note=cfg.get("source_note", ""),

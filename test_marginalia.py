@@ -253,6 +253,13 @@ class SourcePageRender(unittest.TestCase):
         self.assertIn('href="https://example.org/idx"', page)
         self.assertIn("ab12cd", page)
 
+    def test_footer_escapes_sha(self):
+        # sha is escaped like every other footer value (defends the docstring's
+        # "everything user/corpus-derived is html.escape()'d" contract).
+        page = M.source_page("x", "f.yaml", "a\n", sha="<b>")
+        self.assertNotIn("<b>", page)
+        self.assertIn("&lt;b&gt;", page)
+
     def test_page_ships_zero_javascript(self):
         page = M.source_page("x", "f.yaml", "a\n")
         self.assertNotIn("<script", page)
