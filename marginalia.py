@@ -138,11 +138,12 @@ def confidence_readout(entropy, unknown, has_prompt=True):
 
 
 def load_corpus_files(src_dir: str):
-    """Mirrors colophon.load_corpus()'s file discovery but keeps each file's
-    raw text separate (never PAD-joined), so the suffix search in
+    """Mirrors colophon.load_corpus()'s file discovery (.yaml/.yml/.txt) but keeps
+    each file's raw text separate (never PAD-joined), so the suffix search in
     find_source_echo() can never match across an entry boundary."""
     paths = sorted(glob.glob(os.path.join(src_dir, "*.yaml")) +
-                   glob.glob(os.path.join(src_dir, "*.yml")))
+                   glob.glob(os.path.join(src_dir, "*.yml")) +
+                   glob.glob(os.path.join(src_dir, "*.txt")))
     files = []
     for path in paths:
         with open(path, encoding="utf-8", errors="replace") as f:

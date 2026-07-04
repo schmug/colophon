@@ -131,6 +131,15 @@ class CorpusHelpers(unittest.TestCase):
         self.assertEqual(M.corpus_sha256(files), manifest["sha256"])
 
 
+class TxtCorpusFiles(unittest.TestCase):
+    def test_load_corpus_files_reads_txt(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "x.txt"), "w", encoding="utf-8") as f:
+                f.write("user: hi\n")
+            files = M.load_corpus_files(d)
+            self.assertEqual([name for name, _ in files], ["x.txt"])
+
+
 class ConfidenceReadout(unittest.TestCase):
     """The layperson-facing translation of the raw entropy signal. It must be
     the INVERSE of entropy (high entropy -> low confidence), must not oversell

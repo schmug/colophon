@@ -60,9 +60,10 @@ COLOPHON_FILE = "colophon.json"  # the model's self-description (datasheet + car
 
 def load_corpus(src_dir: str):
     paths = sorted(glob.glob(os.path.join(src_dir, "*.yaml")) +
-                   glob.glob(os.path.join(src_dir, "*.yml")))
+                   glob.glob(os.path.join(src_dir, "*.yml")) +
+                   glob.glob(os.path.join(src_dir, "*.txt")))
     if not paths:
-        raise SystemExit(f"No .yaml files found in {src_dir}")
+        raise SystemExit(f"No .yaml/.yml/.txt files found in {src_dir}")
     docs = []
     for p in paths:
         with open(p, encoding="utf-8", errors="replace") as f:

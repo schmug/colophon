@@ -13,6 +13,7 @@ Run: python -m unittest test_colophon    (or: python test_colophon.py)
 """
 
 import os
+import tempfile
 import unittest
 import warnings
 import numpy as np
@@ -537,6 +538,29 @@ class AccelerateMatmulWarnings(unittest.TestCase):
             C.train_model(text, stoi, chars, steps=40, log_every=40)
         leaked = sorted({str(w.message) for w in caught if "matmul" in str(w.message)})
         self.assertEqual(leaked, [], f"matmul warnings during training: {leaked}")
+
+
+class TxtCorpusSupport(unittest.TestCase):
+    """The dialogue teaching corpus is plain .txt (it is not YAML); both
+    corpus loaders must pick it up alongside .yaml/.yml."""
+
+    def test_load_corpus_reads_txt_files(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "a.txt"), "w", encoding="utf-8") as f:
+                f.write("user: hi\nmodel: hello.\n")
+            text, paths = C.load_corpus(d)
+            self.assertEqual(len(paths), 1)
+            self.assertIn("user: hi", text)
+
+    def test_yaml_and_txt_sort_together(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name, body in (("b.txt", "BBB"), ("a.yaml", "AAA")):
+                with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                    f.write(body)
+            text, paths = C.load_corpus(d)
+            self.assertEqual([os.path.basename(p) for p in paths],
+                             ["a.yaml", "b.txt"])
+            self.assertTrue(text.startswith("AAA"))
 
 
 if __name__ == "__main__":
