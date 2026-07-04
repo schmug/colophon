@@ -507,6 +507,40 @@ class SourceRoute(unittest.TestCase):
         self.assertIn(b"&lt;script&gt;", body)
 
 
+class SourceProvenance(unittest.TestCase):
+    """Every mode documents where its corpus comes from, and the note reaches
+    the served /source page. The OSAI note stays honest about sample_data
+    being original stand-ins, not index entries (keep-it-honest rule)."""
+
+    def test_every_mode_has_a_source_note(self):
+        for mid, meta in M.MODE_META.items():
+            self.assertTrue(meta.get("source_note", "").strip(), mid)
+
+    def test_osai_cites_the_index_and_flags_the_sample(self):
+        note = M.MODE_META["osai"]["source_note"]
+        self.assertIn("CC BY 4.0", note)
+        self.assertIn("10.5281/zenodo.15386042", note)
+        self.assertIn("sample_data", note)
+        self.assertIn("codeberg.org", M.MODE_META["osai"]["source_url"])
+
+    def test_generated_corpora_cite_their_generators(self):
+        self.assertIn("build_elements.py", M.MODE_META["elements"]["source_note"])
+        self.assertIn("build_kana.py", M.MODE_META["kana"]["source_note"])
+
+    def test_note_reaches_the_served_page(self):
+        modes = {"osai": {"model": _make_model(),
+                          "files": (("entry.yaml", "class: open\n"),),
+                          **M.MODE_META["osai"]}}
+        server = _ServerFixture(modes)
+        try:
+            status, _, body = server.get("/source?file=entry.yaml")
+            self.assertEqual(status, 200)
+            self.assertIn(b"10.5281/zenodo.15386042", body)
+            self.assertIn(b"codeberg.org", body)
+        finally:
+            server.close()
+
+
 class IndexHtmlContract(unittest.TestCase):
     """The single-page inspector must ship all six regions (incl. the full
     context-window sidebar) + the black-box framing banner, and must not
