@@ -1,0 +1,19 @@
+user: what is element 55?
+model: element 55 is Caesium (Cs), in period 6.
+
+user: what is the symbol for Caesium?
+model: the symbol for Caesium is Cs.
+
+user: which element has the symbol Cs?
+model: Cs is Caesium, element 55.
+
+user: which period is Caesium in?
+model: Caesium is in period 6.
+
+user: tell me about Caesium.
+model: Caesium has symbol Cs, atomic number 55, and sits in period 6.
+
+user: what is element 55?
+model: element 55 is Caesium (Cs), in period 6.
+user: which period is it in?
+model: Caesium is in period 6.

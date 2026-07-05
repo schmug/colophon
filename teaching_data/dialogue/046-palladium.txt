@@ -1,0 +1,19 @@
+user: what is element 46?
+model: element 46 is Palladium (Pd), in period 5.
+
+user: what is the symbol for Palladium?
+model: the symbol for Palladium is Pd.
+
+user: which element has the symbol Pd?
+model: Pd is Palladium, element 46.
+
+user: which period is Palladium in?
+model: Palladium is in period 5.
+
+user: tell me about Palladium.
+model: Palladium has symbol Pd, atomic number 46, and sits in period 5.
+
+user: what is element 46?
+model: element 46 is Palladium (Pd), in period 5.
+user: which period is it in?
+model: Palladium is in period 5.

@@ -1,0 +1,19 @@
+user: what is element 15?
+model: element 15 is Phosphorus (P), in period 3.
+
+user: what is the symbol for Phosphorus?
+model: the symbol for Phosphorus is P.
+
+user: which element has the symbol P?
+model: P is Phosphorus, element 15.
+
+user: which period is Phosphorus in?
+model: Phosphorus is in period 3.
+
+user: tell me about Phosphorus.
+model: Phosphorus has symbol P, atomic number 15, and sits in period 3.
+
+user: what is element 15?
+model: element 15 is Phosphorus (P), in period 3.
+user: which period is it in?
+model: Phosphorus is in period 3.

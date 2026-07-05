@@ -1,0 +1,19 @@
+user: what is element 38?
+model: element 38 is Strontium (Sr), in period 5.
+
+user: what is the symbol for Strontium?
+model: the symbol for Strontium is Sr.
+
+user: which element has the symbol Sr?
+model: Sr is Strontium, element 38.
+
+user: which period is Strontium in?
+model: Strontium is in period 5.
+
+user: tell me about Strontium.
+model: Strontium has symbol Sr, atomic number 38, and sits in period 5.
+
+user: what is element 38?
+model: element 38 is Strontium (Sr), in period 5.
+user: which period is it in?
+model: Strontium is in period 5.

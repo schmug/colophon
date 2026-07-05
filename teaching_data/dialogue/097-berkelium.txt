@@ -1,0 +1,19 @@
+user: what is element 97?
+model: element 97 is Berkelium (Bk), in period 7.
+
+user: what is the symbol for Berkelium?
+model: the symbol for Berkelium is Bk.
+
+user: which element has the symbol Bk?
+model: Bk is Berkelium, element 97.
+
+user: which period is Berkelium in?
+model: Berkelium is in period 7.
+
+user: tell me about Berkelium.
+model: Berkelium has symbol Bk, atomic number 97, and sits in period 7.
+
+user: what is element 97?
+model: element 97 is Berkelium (Bk), in period 7.
+user: which period is it in?
+model: Berkelium is in period 7.

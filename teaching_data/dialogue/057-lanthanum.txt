@@ -1,0 +1,19 @@
+user: what is element 57?
+model: element 57 is Lanthanum (La), in period 6.
+
+user: what is the symbol for Lanthanum?
+model: the symbol for Lanthanum is La.
+
+user: which element has the symbol La?
+model: La is Lanthanum, element 57.
+
+user: which period is Lanthanum in?
+model: Lanthanum is in period 6.
+
+user: tell me about Lanthanum.
+model: Lanthanum has symbol La, atomic number 57, and sits in period 6.
+
+user: what is element 57?
+model: element 57 is Lanthanum (La), in period 6.
+user: which period is it in?
+model: Lanthanum is in period 6.

@@ -1,0 +1,19 @@
+user: what is element 36?
+model: element 36 is Krypton (Kr), in period 4.
+
+user: what is the symbol for Krypton?
+model: the symbol for Krypton is Kr.
+
+user: which element has the symbol Kr?
+model: Kr is Krypton, element 36.
+
+user: which period is Krypton in?
+model: Krypton is in period 4.
+
+user: tell me about Krypton.
+model: Krypton has symbol Kr, atomic number 36, and sits in period 4.
+
+user: what is element 36?
+model: element 36 is Krypton (Kr), in period 4.
+user: which period is it in?
+model: Krypton is in period 4.

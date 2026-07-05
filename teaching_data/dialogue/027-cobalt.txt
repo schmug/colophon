@@ -1,0 +1,19 @@
+user: what is element 27?
+model: element 27 is Cobalt (Co), in period 4.
+
+user: what is the symbol for Cobalt?
+model: the symbol for Cobalt is Co.
+
+user: which element has the symbol Co?
+model: Co is Cobalt, element 27.
+
+user: which period is Cobalt in?
+model: Cobalt is in period 4.
+
+user: tell me about Cobalt.
+model: Cobalt has symbol Co, atomic number 27, and sits in period 4.
+
+user: what is element 27?
+model: element 27 is Cobalt (Co), in period 4.
+user: which period is it in?
+model: Cobalt is in period 4.

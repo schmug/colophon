@@ -6,6 +6,12 @@ colophon.json
 elements.npz
 elements.json
 
+# Generated K=64 models (regenerate per their train commands; not vendored)
+elements_k64.npz
+dialogue_k64.npz
+elements_k64.json
+dialogue_k64.json
+
 # Generated kana model (regenerate: python colophon.py --src teaching_data/kana --out kana.npz --steps 3000 train)
 kana.npz
 kana.json
@@ -31,3 +37,7 @@ dist/
 
 # OS
 .DS_Store
+
+# Incipit front-end (Node/Vite build tooling; build-time only, see CLAUDE.md)
+incipit/node_modules/
+incipit/dist/

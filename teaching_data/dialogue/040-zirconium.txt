@@ -1,0 +1,19 @@
+user: what is element 40?
+model: element 40 is Zirconium (Zr), in period 5.
+
+user: what is the symbol for Zirconium?
+model: the symbol for Zirconium is Zr.
+
+user: which element has the symbol Zr?
+model: Zr is Zirconium, element 40.
+
+user: which period is Zirconium in?
+model: Zirconium is in period 5.
+
+user: tell me about Zirconium.
+model: Zirconium has symbol Zr, atomic number 40, and sits in period 5.
+
+user: what is element 40?
+model: element 40 is Zirconium (Zr), in period 5.
+user: which period is it in?
+model: Zirconium is in period 5.

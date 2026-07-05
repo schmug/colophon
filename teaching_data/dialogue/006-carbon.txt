@@ -1,0 +1,19 @@
+user: what is element 6?
+model: element 6 is Carbon (C), in period 2.
+
+user: what is the symbol for Carbon?
+model: the symbol for Carbon is C.
+
+user: which element has the symbol C?
+model: C is Carbon, element 6.
+
+user: which period is Carbon in?
+model: Carbon is in period 2.
+
+user: tell me about Carbon.
+model: Carbon has symbol C, atomic number 6, and sits in period 2.
+
+user: what is element 6?
+model: element 6 is Carbon (C), in period 2.
+user: which period is it in?
+model: Carbon is in period 2.

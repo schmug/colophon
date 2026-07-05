@@ -1,0 +1,19 @@
+user: what is element 104?
+model: element 104 is Rutherfordium (Rf), in period 7.
+
+user: what is the symbol for Rutherfordium?
+model: the symbol for Rutherfordium is Rf.
+
+user: which element has the symbol Rf?
+model: Rf is Rutherfordium, element 104.
+
+user: which period is Rutherfordium in?
+model: Rutherfordium is in period 7.
+
+user: tell me about Rutherfordium.
+model: Rutherfordium has symbol Rf, atomic number 104, and sits in period 7.
+
+user: what is element 104?
+model: element 104 is Rutherfordium (Rf), in period 7.
+user: which period is it in?
+model: Rutherfordium is in period 7.

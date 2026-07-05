@@ -1,0 +1,19 @@
+user: what is element 110?
+model: element 110 is Darmstadtium (Ds), in period 7.
+
+user: what is the symbol for Darmstadtium?
+model: the symbol for Darmstadtium is Ds.
+
+user: which element has the symbol Ds?
+model: Ds is Darmstadtium, element 110.
+
+user: which period is Darmstadtium in?
+model: Darmstadtium is in period 7.
+
+user: tell me about Darmstadtium.
+model: Darmstadtium has symbol Ds, atomic number 110, and sits in period 7.
+
+user: what is element 110?
+model: element 110 is Darmstadtium (Ds), in period 7.
+user: which period is it in?
+model: Darmstadtium is in period 7.

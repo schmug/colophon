@@ -1,0 +1,19 @@
+user: what is element 3?
+model: element 3 is Lithium (Li), in period 2.
+
+user: what is the symbol for Lithium?
+model: the symbol for Lithium is Li.
+
+user: which element has the symbol Li?
+model: Li is Lithium, element 3.
+
+user: which period is Lithium in?
+model: Lithium is in period 2.
+
+user: tell me about Lithium.
+model: Lithium has symbol Li, atomic number 3, and sits in period 2.
+
+user: what is element 3?
+model: element 3 is Lithium (Li), in period 2.
+user: which period is it in?
+model: Lithium is in period 2.

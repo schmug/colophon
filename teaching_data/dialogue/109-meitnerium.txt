@@ -1,0 +1,19 @@
+user: what is element 109?
+model: element 109 is Meitnerium (Mt), in period 7.
+
+user: what is the symbol for Meitnerium?
+model: the symbol for Meitnerium is Mt.
+
+user: which element has the symbol Mt?
+model: Mt is Meitnerium, element 109.
+
+user: which period is Meitnerium in?
+model: Meitnerium is in period 7.
+
+user: tell me about Meitnerium.
+model: Meitnerium has symbol Mt, atomic number 109, and sits in period 7.
+
+user: what is element 109?
+model: element 109 is Meitnerium (Mt), in period 7.
+user: which period is it in?
+model: Meitnerium is in period 7.

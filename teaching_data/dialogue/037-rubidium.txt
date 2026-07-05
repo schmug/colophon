@@ -1,0 +1,19 @@
+user: what is element 37?
+model: element 37 is Rubidium (Rb), in period 5.
+
+user: what is the symbol for Rubidium?
+model: the symbol for Rubidium is Rb.
+
+user: which element has the symbol Rb?
+model: Rb is Rubidium, element 37.
+
+user: which period is Rubidium in?
+model: Rubidium is in period 5.
+
+user: tell me about Rubidium.
+model: Rubidium has symbol Rb, atomic number 37, and sits in period 5.
+
+user: what is element 37?
+model: element 37 is Rubidium (Rb), in period 5.
+user: which period is it in?
+model: Rubidium is in period 5.

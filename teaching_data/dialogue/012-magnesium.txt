@@ -1,0 +1,19 @@
+user: what is element 12?
+model: element 12 is Magnesium (Mg), in period 3.
+
+user: what is the symbol for Magnesium?
+model: the symbol for Magnesium is Mg.
+
+user: which element has the symbol Mg?
+model: Mg is Magnesium, element 12.
+
+user: which period is Magnesium in?
+model: Magnesium is in period 3.
+
+user: tell me about Magnesium.
+model: Magnesium has symbol Mg, atomic number 12, and sits in period 3.
+
+user: what is element 12?
+model: element 12 is Magnesium (Mg), in period 3.
+user: which period is it in?
+model: Magnesium is in period 3.

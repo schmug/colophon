@@ -1,0 +1,19 @@
+user: what is element 17?
+model: element 17 is Chlorine (Cl), in period 3.
+
+user: what is the symbol for Chlorine?
+model: the symbol for Chlorine is Cl.
+
+user: which element has the symbol Cl?
+model: Cl is Chlorine, element 17.
+
+user: which period is Chlorine in?
+model: Chlorine is in period 3.
+
+user: tell me about Chlorine.
+model: Chlorine has symbol Cl, atomic number 17, and sits in period 3.
+
+user: what is element 17?
+model: element 17 is Chlorine (Cl), in period 3.
+user: which period is it in?
+model: Chlorine is in period 3.

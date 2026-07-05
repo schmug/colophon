@@ -1,0 +1,19 @@
+user: what is element 43?
+model: element 43 is Technetium (Tc), in period 5.
+
+user: what is the symbol for Technetium?
+model: the symbol for Technetium is Tc.
+
+user: which element has the symbol Tc?
+model: Tc is Technetium, element 43.
+
+user: which period is Technetium in?
+model: Technetium is in period 5.
+
+user: tell me about Technetium.
+model: Technetium has symbol Tc, atomic number 43, and sits in period 5.
+
+user: what is element 43?
+model: element 43 is Technetium (Tc), in period 5.
+user: which period is it in?
+model: Technetium is in period 5.

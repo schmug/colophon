@@ -1,0 +1,87 @@
+/* Palette semantics follow Marginalia so the two UIs read as siblings:
+   user = blue tint, model = green tint, off-map = red, pad/marker = dim. */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace;
+       background: #12161b; color: #d8dee6; font-size: 14px; line-height: 1.5; }
+.app { display: grid; height: 100vh;
+       grid-template-columns: minmax(280px, 1fr) minmax(420px, 2.2fr) minmax(280px, 1fr); }
+.panel { padding: 1rem; overflow-y: auto; border-right: 1px solid #2a3340; }
+h1 { font-size: 1.25rem; } h1 .glyph { opacity: .6; }
+h2 { font-size: 1rem; margin: .2rem 0 .6rem; }
+h3 { font-size: .85rem; margin: 1rem 0 .3rem; opacity: .85; }
+a { color: #6cf; }
+.muted { opacity: .6; font-size: .85rem; }
+.error { color: #d33; margin: .5rem 0; }
+.banner { border-left: 3px solid #b60; background: #b6010a10;
+          padding: .5rem .75rem; font-size: .85rem; }
+button { font: inherit; font-size: .85rem; cursor: pointer; color: inherit;
+         background: #8881; border: 1px solid #8886; border-radius: 6px;
+         padding: .3rem .8rem; }
+button:hover:not(:disabled) { background: #8883; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.active { background: #2a63; border-color: #2a6; font-weight: bold; }
+button.tiny { padding: 0 .4rem; font-size: .7rem; }
+textarea, select { font: inherit; color: inherit; background: #0d1014;
+                   border: 1px solid #2a3340; border-radius: 4px; }
+
+/* mode switcher + acts */
+.mode-switch, .acts { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; }
+.act-copy { border: 1px solid #2a3340; border-radius: 6px; padding: .6rem .8rem;
+            margin: .5rem 0; font-size: .85rem; }
+
+/* tape */
+.budget { font-size: .8rem; margin: .5rem 0 .3rem; }
+.fell-off { color: #d33; }
+.tape { display: flex; flex-wrap: wrap; gap: 1px; max-height: 38vh;
+        overflow-y: auto; border: 1px solid #2a3340; border-radius: 4px;
+        padding: .3rem; }
+.tape-cell { min-width: 1.05rem; text-align: center; border-radius: 2px;
+             padding: .05rem .1rem; font-size: .8rem; }
+.tape-cell.user { background: #06f3; }
+.tape-cell.model { background: #2a63; }
+.tape-cell.marker { opacity: .45; }
+.tape-cell.in-window { outline: 2px solid #06f; }
+.turn-row { display: flex; gap: .4rem; align-items: flex-start; margin: .25rem 0; }
+.turn-row.excluded { opacity: .4; }
+.turn-row label { min-width: 4.5rem; font-size: .8rem; }
+.turn-row textarea { flex: 1; }
+
+/* conversation */
+.bubbles { margin: .8rem 0; }
+.bubble { border-radius: 8px; padding: .5rem .8rem; margin: .4rem 0;
+          max-width: 92%; white-space: pre-wrap; word-break: break-word; }
+.bubble.user { background: #06f2; margin-left: auto; }
+.bubble.model { background: #2a62; }
+.bubble.excluded { opacity: .4; text-decoration: line-through; }
+.bubble.model span { cursor: pointer; border-radius: 2px; }
+.bubble.model span.focus { outline: 2px solid #06f; }
+.candidates { border: 1px solid #2a3340; border-radius: 6px; padding: .6rem; }
+.candidate { border-top: 1px dashed #2a3340; padding: .5rem 0; }
+.cand-head { font-size: .8rem; opacity: .8; margin-bottom: .2rem; }
+.cand-text { white-space: pre-wrap; word-break: break-word; margin: .3rem 0; }
+.composer { display: flex; gap: .5rem; margin: .8rem 0 .4rem; }
+.composer textarea { flex: 1; min-height: 3rem; padding: .4rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 1rem; font-size: .8rem;
+            align-items: center; }
+.controls label { display: inline-flex; align-items: center; gap: .4rem; }
+
+/* inspector */
+.focus-head { font-size: .9rem; margin-bottom: .4rem; }
+.off { color: #d33; font-weight: bold; }
+.barrow { display: flex; align-items: center; gap: .5rem; margin: 2px 0; }
+.barrow .lab { min-width: 1.6rem; text-align: right; }
+.barrow .bar { height: 12px; background: linear-gradient(90deg, #2a6, #6cf);
+               border-radius: 3px; }
+.window { display: flex; flex-wrap: wrap; gap: 2px; }
+.cell { display: inline-block; min-width: 1.3rem; text-align: center;
+        border: 1px solid #2a3340; border-radius: 3px; padding: .1rem .15rem; }
+.cell.pad { opacity: .4; }
+.cell.off_map { outline: 1px solid #d33; font-weight: bold; }
+.salbar { display: block; height: 5px; background: #06f; border-radius: 3px;
+          margin-top: 2px; }
+.banned-chip { margin: 0 .3rem .3rem 0; }
+
+@media (max-width: 1100px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .panel { border-right: none; border-bottom: 1px solid #2a3340; }
+}

@@ -1,0 +1,19 @@
+user: what is element 34?
+model: element 34 is Selenium (Se), in period 4.
+
+user: what is the symbol for Selenium?
+model: the symbol for Selenium is Se.
+
+user: which element has the symbol Se?
+model: Se is Selenium, element 34.
+
+user: which period is Selenium in?
+model: Selenium is in period 4.
+
+user: tell me about Selenium.
+model: Selenium has symbol Se, atomic number 34, and sits in period 4.
+
+user: what is element 34?
+model: element 34 is Selenium (Se), in period 4.
+user: which period is it in?
+model: Selenium is in period 4.

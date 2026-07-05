@@ -1,0 +1,19 @@
+user: what is element 68?
+model: element 68 is Erbium (Er), in period 6.
+
+user: what is the symbol for Erbium?
+model: the symbol for Erbium is Er.
+
+user: which element has the symbol Er?
+model: Er is Erbium, element 68.
+
+user: which period is Erbium in?
+model: Erbium is in period 6.
+
+user: tell me about Erbium.
+model: Erbium has symbol Er, atomic number 68, and sits in period 6.
+
+user: what is element 68?
+model: element 68 is Erbium (Er), in period 6.
+user: which period is it in?
+model: Erbium is in period 6.

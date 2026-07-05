@@ -12,12 +12,18 @@ would silently rot if the code changed underneath the docs:
 Run: python -m unittest test_colophon    (or: python test_colophon.py)
 """
 
+import json
 import os
+import subprocess
+import sys
+import tempfile
 import unittest
 import warnings
 import numpy as np
 
 import colophon as C
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 try:
     import torch  # noqa: F401  -- only used to gate the optional transformer tests
@@ -98,7 +104,8 @@ class DemoSchemaWarning(unittest.TestCase):
         import argparse, contextlib, io, tempfile
         # out=None mirrors the CLI default added alongside --out; cmd_demo
         # resolves it to the standard colophon.npz path (redirected via C.HERE).
-        args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp", out=None)
+        args = argparse.Namespace(src=src, steps=5, seed=0, arch="mlp", out=None,
+                                  K=12, E=24, H=128, lr=3e-3)
         buf = io.StringIO()
         with tempfile.TemporaryDirectory() as d:
             orig_here = C.HERE
@@ -537,6 +544,157 @@ class AccelerateMatmulWarnings(unittest.TestCase):
             C.train_model(text, stoi, chars, steps=40, log_every=40)
         leaked = sorted({str(w.message) for w in caught if "matmul" in str(w.message)})
         self.assertEqual(leaked, [], f"matmul warnings during training: {leaked}")
+
+
+class TxtCorpusSupport(unittest.TestCase):
+    """The dialogue teaching corpus is plain .txt (it is not YAML); both
+    corpus loaders must pick it up alongside .yaml/.yml."""
+
+    def test_load_corpus_reads_txt_files(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "a.txt"), "w", encoding="utf-8") as f:
+                f.write("user: hi\nmodel: hello.\n")
+            text, paths = C.load_corpus(d)
+            self.assertEqual(len(paths), 1)
+            self.assertIn("user: hi", text)
+
+    def test_yaml_and_txt_sort_together(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name, body in (("b.txt", "BBB"), ("a.yaml", "AAA")):
+                with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                    f.write(body)
+            text, paths = C.load_corpus(d)
+            self.assertEqual([os.path.basename(p) for p in paths],
+                             ["a.yaml", "b.txt"])
+            self.assertTrue(text.startswith("AAA"))
+
+
+class SamplingControls(unittest.TestCase):
+    """New sampling knobs on generate(): top_k, banned_ids, stop, temp<=0
+    greedy. All default-off, so historical calls stay byte-identical."""
+
+    def setUp(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_defaults_unchanged(self):
+        a = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=40, seed=3)
+        b = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=40, seed=3,
+                       top_k=0, banned_ids=(), stop=None)
+        self.assertEqual(a, b)
+
+    def test_temp_zero_is_greedy_and_seed_independent(self):
+        a = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30, temp=0, seed=1)
+        b = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30, temp=0, seed=99)
+        self.assertEqual(a, b)
+
+    def test_top_k_1_equals_greedy(self):
+        greedy = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30, temp=0)
+        topk1 = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=30,
+                           temp=1.7, top_k=1, seed=5)
+        self.assertEqual(greedy, topk1)
+
+    def test_banned_char_never_sampled(self):
+        out = C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=120,
+                         temp=1.2, seed=2, banned_ids=[self.stoi["e"]])
+        self.assertNotIn("e", out[len("cl"):])
+
+    def test_all_banned_raises(self):
+        with self.assertRaises(ValueError):
+            C.generate(self.p, self.stoi, self.itos, self.K, "cl", n=5,
+                       banned_ids=list(range(len(self.chars))))
+
+    def test_stop_string_halts_generation(self):
+        out = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=200,
+                         temp=1.0, seed=0, stop="\n")
+        cont = out[len("class"):]
+        # The assertion must actually exercise the stop path: with seed=0 the
+        # untrained model emits "\n" well before 200 chars. If a code change
+        # ever makes this seed miss, pick a seed that hits -- do NOT make the
+        # assertion conditional.
+        self.assertIn("\n", cont,
+                      "stop char never sampled -- choose a seed that hits it")
+        self.assertEqual(cont.index("\n"), len(cont) - 1,
+                         "generation must halt at the stop string")
+
+
+class InspectPromptSampling(unittest.TestCase):
+    """inspect_prompt must sample its continuation with the caller's knobs --
+    the records then describe exactly what generate() would emit."""
+
+    def setUp(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+
+    def test_records_continuation_matches_generate_with_same_knobs(self):
+        kw = dict(temp=1.3, top_k=3, banned_ids=[self.stoi["e"]], seed=7)
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                                n_continuation=25, **kw)
+        cont = "".join(r["char"] for r in recs if r["is_continuation"])
+        want = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=25, **kw)
+        self.assertEqual(cont, want[len("class"):])
+
+    def test_stop_shortens_records_not_crashes(self):
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                                n_continuation=100, seed=0, stop="e")
+        cont = "".join(r["char"] for r in recs if r["is_continuation"])
+        # Must exercise the stop path (same rule as SamplingControls' stop
+        # test): if this seed ever stops hitting "e", pick one that does.
+        self.assertIn("e", cont,
+                      "stop char never sampled -- choose a seed that hits it")
+        self.assertTrue(cont.endswith("e"))
+
+    def test_default_records_unchanged(self):
+        a = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                             n_continuation=10, seed=3)
+        b = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, "class",
+                             n_continuation=10, seed=3, temp=0.8, top_k=0,
+                             banned_ids=(), stop=None)
+        self.assertEqual(a, b)
+
+
+class CliHyperparamFlags(unittest.TestCase):
+    """--K/--E/--H must reach train_model and shape the saved weights. One
+    training step on the bundled sample keeps this end-to-end test fast."""
+
+    def test_train_with_K_E_H_flags_shapes_weights(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "tiny.npz")
+            r = subprocess.run(
+                [sys.executable, os.path.join(HERE, "colophon.py"),
+                 "--steps", "1", "--K", "4", "--E", "8", "--H", "16",
+                 "--out", out, "train"],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            # allow_pickle=True is safe here: the archive was written moments
+            # ago by this test's own training run (repo convention -- `chars`
+            # is an object array), not untrusted input.
+            saved = np.load(out, allow_pickle=True)
+            self.assertEqual(saved["C"].shape[1], 8)          # E
+            self.assertEqual(saved["W1"].shape, (4 * 8, 16))  # (K*E, H)
+            self.assertEqual(saved["b1"].shape, (16,))
+
+    def test_lr_flag_reaches_training(self):
+        # --lr must reach train_model. A tiny 2-step run at a distinctive lr
+        # trains without error and saves usable weights; the paired colophon.json
+        # records the lr, proving the flag threaded through (train_model writes
+        # lr into its manifest).
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "lr.npz")
+            r = subprocess.run(
+                [sys.executable, os.path.join(HERE, "colophon.py"),
+                 "--steps", "2", "--K", "4", "--E", "8", "--H", "16",
+                 "--lr", "0.0005", "--out", out, "train"],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            json_path = C.colophon_json_path(out)
+            with open(json_path) as f:
+                man = json.load(f)
+            self.assertEqual(man["training"]["lr"], 0.0005)
 
 
 if __name__ == "__main__":

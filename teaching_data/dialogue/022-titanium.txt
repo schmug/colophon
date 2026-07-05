@@ -1,0 +1,19 @@
+user: what is element 22?
+model: element 22 is Titanium (Ti), in period 4.
+
+user: what is the symbol for Titanium?
+model: the symbol for Titanium is Ti.
+
+user: which element has the symbol Ti?
+model: Ti is Titanium, element 22.
+
+user: which period is Titanium in?
+model: Titanium is in period 4.
+
+user: tell me about Titanium.
+model: Titanium has symbol Ti, atomic number 22, and sits in period 4.
+
+user: what is element 22?
+model: element 22 is Titanium (Ti), in period 4.
+user: which period is it in?
+model: Titanium is in period 4.

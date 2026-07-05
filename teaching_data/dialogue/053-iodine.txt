@@ -1,0 +1,19 @@
+user: what is element 53?
+model: element 53 is Iodine (I), in period 5.
+
+user: what is the symbol for Iodine?
+model: the symbol for Iodine is I.
+
+user: which element has the symbol I?
+model: I is Iodine, element 53.
+
+user: which period is Iodine in?
+model: Iodine is in period 5.
+
+user: tell me about Iodine.
+model: Iodine has symbol I, atomic number 53, and sits in period 5.
+
+user: what is element 53?
+model: element 53 is Iodine (I), in period 5.
+user: which period is it in?
+model: Iodine is in period 5.

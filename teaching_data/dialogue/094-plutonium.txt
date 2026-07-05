@@ -1,0 +1,19 @@
+user: what is element 94?
+model: element 94 is Plutonium (Pu), in period 7.
+
+user: what is the symbol for Plutonium?
+model: the symbol for Plutonium is Pu.
+
+user: which element has the symbol Pu?
+model: Pu is Plutonium, element 94.
+
+user: which period is Plutonium in?
+model: Plutonium is in period 7.
+
+user: tell me about Plutonium.
+model: Plutonium has symbol Pu, atomic number 94, and sits in period 7.
+
+user: what is element 94?
+model: element 94 is Plutonium (Pu), in period 7.
+user: which period is it in?
+model: Plutonium is in period 7.

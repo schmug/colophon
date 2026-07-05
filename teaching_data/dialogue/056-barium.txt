@@ -1,0 +1,19 @@
+user: what is element 56?
+model: element 56 is Barium (Ba), in period 6.
+
+user: what is the symbol for Barium?
+model: the symbol for Barium is Ba.
+
+user: which element has the symbol Ba?
+model: Ba is Barium, element 56.
+
+user: which period is Barium in?
+model: Barium is in period 6.
+
+user: tell me about Barium.
+model: Barium has symbol Ba, atomic number 56, and sits in period 6.
+
+user: what is element 56?
+model: element 56 is Barium (Ba), in period 6.
+user: which period is it in?
+model: Barium is in period 6.

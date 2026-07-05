@@ -1,0 +1,19 @@
+user: what is element 103?
+model: element 103 is Lawrencium (Lr), in period 7.
+
+user: what is the symbol for Lawrencium?
+model: the symbol for Lawrencium is Lr.
+
+user: which element has the symbol Lr?
+model: Lr is Lawrencium, element 103.
+
+user: which period is Lawrencium in?
+model: Lawrencium is in period 7.
+
+user: tell me about Lawrencium.
+model: Lawrencium has symbol Lr, atomic number 103, and sits in period 7.
+
+user: what is element 103?
+model: element 103 is Lawrencium (Lr), in period 7.
+user: which period is it in?
+model: Lawrencium is in period 7.

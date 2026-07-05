@@ -60,9 +60,10 @@ COLOPHON_FILE = "colophon.json"  # the model's self-description (datasheet + car
 
 def load_corpus(src_dir: str):
     paths = sorted(glob.glob(os.path.join(src_dir, "*.yaml")) +
-                   glob.glob(os.path.join(src_dir, "*.yml")))
+                   glob.glob(os.path.join(src_dir, "*.yml")) +
+                   glob.glob(os.path.join(src_dir, "*.txt")))
     if not paths:
-        raise SystemExit(f"No .yaml files found in {src_dir}")
+        raise SystemExit(f"No .yaml/.yml/.txt files found in {src_dir}")
     docs = []
     for p in paths:
         with open(p, encoding="utf-8", errors="replace") as f:
@@ -344,21 +345,46 @@ def train_model(text, stoi, chars, K=12, E=24, H=128, steps=6000, batch=64,
 # Generation + white-box confidence signals
 # --------------------------------------------------------------------------- #
 
-def generate(p, stoi, itos, K, prompt="", n=240, temp=0.8, seed=0):
+def generate(p, stoi, itos, K, prompt="", n=240, temp=0.8, seed=0,
+             top_k=0, banned_ids=(), stop=None):
+    """Sample a continuation of `prompt`. The new knobs are all default-off so
+    historical calls are byte-identical. `banned_ids` masks vocab ids to -inf
+    BEFORE the softmax -- real logit surgery, not a post-hoc filter (Incipit's
+    "ban a char" is this, honestly). `top_k` restricts sampling to the k
+    highest logits. `temp<=0` means greedy argmax (the rng is never consulted).
+    `stop` ends generation the moment the continuation ends with that string
+    -- the stop-sequence concept every chat API has, made visible."""
     rng = np.random.default_rng(seed)
     ctx = [0] * K
     for ch in prompt:
         if ch in stoi:
             ctx = (ctx + [stoi[ch]])[-K:]
+    banned = [int(b) for b in banned_ids]
     out = []
     for _ in range(n):
         logits, _ = forward(p, np.array([ctx]))
-        l = logits[0] / temp
-        l -= l.max()
-        pr = np.exp(l); pr /= pr.sum()
-        j = int(rng.choice(len(pr), p=pr))
+        l = logits[0].astype(np.float64).copy()
+        if banned:
+            l[banned] = -np.inf
+        if not np.isfinite(l).any():
+            raise ValueError("every vocab id is banned -- nothing to sample")
+        if temp <= 0:
+            j = int(np.argmax(l))
+        else:
+            l = l / temp
+            if top_k:
+                finite = np.isfinite(l)
+                k_eff = min(int(top_k), int(finite.sum()))
+                kth = np.sort(l[finite])[-k_eff]
+                l[l < kth] = -np.inf
+            l = l - l[np.isfinite(l)].max()
+            pr = np.exp(l)          # exp(-inf) = 0.0: banned/cut ids get zero mass
+            pr /= pr.sum()
+            j = int(rng.choice(len(pr), p=pr))
         out.append(itos[j])
         ctx = (ctx + [j])[-K:]
+        if stop and "".join(out).endswith(stop):
+            break
     return prompt + "".join(out)
 
 
@@ -384,18 +410,21 @@ def _dist(p, ctx_ids):
     return pr
 
 
-def _full_context_ids(p, stoi, itos, K, text, n_continuation, seed):
+def _full_context_ids(p, stoi, itos, K, text, n_continuation, seed,
+                      temp=0.8, top_k=0, banned_ids=(), stop=None):
     """The full int sequence the inspector reasons over: K pad slots, then the
     teacher-forced prompt, then the model's OWN sampled continuation. The
     continuation comes from generate() verbatim, so it is identical to what
     generate() emits -- Marginalia re-derives nothing. Unknown chars map to PAD
     (index 0), exactly as generate()/prompt_confidence() already treat them.
+    The sampling knobs (temp/top_k/banned_ids/stop) pass straight to generate().
     Returns (ids, n_prompt, cont_chars)."""
     prompt_ids = [stoi.get(ch, 0) for ch in text]
     cont = ""
     if n_continuation > 0:
         cont = generate(p, stoi, itos, K, prompt=text,
-                        n=n_continuation, seed=seed)[len(text):]
+                        n=n_continuation, seed=seed, temp=temp,
+                        top_k=top_k, banned_ids=banned_ids, stop=stop)[len(text):]
     ids = [0] * K + prompt_ids + [stoi.get(ch, 0) for ch in cont]
     return ids, len(prompt_ids), cont
 
@@ -416,7 +445,8 @@ def _slot_types(chars, n_prompt, stoi):
     return types
 
 
-def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
+def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0,
+                   temp=0.8, top_k=0, banned_ids=(), stop=None):
     """Maximal per-position white-box record over the teacher-forced prompt plus
     the model's sampled continuation. Every number here is read from the weights
     via forward() -- the honest version of what black-box tools can only fake.
@@ -429,9 +459,14 @@ def inspect_prompt(p, stoi, itos, K, text, topk=5, n_continuation=80, seed=0):
     continuation (so a UI can tell "beyond the horizon" apart from "a character
     the model has never seen" -- both render as ∅ but are not the same thing),
     and where the actual next char ranked (truth_rank/truth_prob; null when
-    off-map)."""
+    off-map). `topk` is how many candidates each record reports; the separate
+    `top_k`/`temp`/`banned_ids`/`stop` knobs shape how the CONTINUATION is
+    sampled (they pass through to generate()); the per-record entropy/top_k
+    stay the raw temperature-1 distribution either way."""
     ids, n_prompt, cont = _full_context_ids(p, stoi, itos, K, text,
-                                            n_continuation, seed)
+                                            n_continuation, seed, temp=temp,
+                                            top_k=top_k, banned_ids=banned_ids,
+                                            stop=stop)
     chars = text + cont
     types = ["pad"] * K + _slot_types(chars, n_prompt, stoi)
     records = []
@@ -747,7 +782,8 @@ def _train_from_args(args):
     text, paths = load_corpus(args.src)
     chars, stoi, itos = build_vocab(text)
     print(f"corpus: {len(text)} chars, {len(paths)} files, vocab {len(chars)}")
-    p, man = train_model(text, stoi, chars, steps=args.steps, seed=args.seed, arch=args.arch)
+    p, man = train_model(text, stoi, chars, K=args.K, E=args.E, H=args.H,
+                         lr=args.lr, steps=args.steps, seed=args.seed, arch=args.arch)
     return text, paths, chars, stoi, itos, p, man
 
 
@@ -836,6 +872,20 @@ def main():
                          "dependency-free NumPy) or 'transformer' (optional, requires "
                          "`pip install torch`). generate reads the arch from the saved "
                          "weights, so this flag doesn't need repeating there.")
+    ap.add_argument("--K", type=int, default=12,
+                    help="context window length in characters. The teaching "
+                         "chat models need K=64 (a 'user: ...' question must "
+                         "fit in the window); the flagship default stays 12.")
+    ap.add_argument("--E", type=int, default=24,
+                    help="embedding dimension (MLP path; the transformer arch "
+                         "keeps its own internal defaults)")
+    ap.add_argument("--H", type=int, default=128,
+                    help="hidden layer width (MLP path only)")
+    ap.add_argument("--lr", type=float, default=3e-3,
+                    help="Adam learning rate. The K=64 dialogue teaching model "
+                         "needs a lower LR (e.g. 5e-4 (0.0005)) to cleanly "
+                         "memorize the harder dialogue corpus; the flagship "
+                         "default stays 3e-3.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("train")

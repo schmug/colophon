@@ -1,0 +1,19 @@
+user: what is element 1?
+model: element 1 is Hydrogen (H), in period 1.
+
+user: what is the symbol for Hydrogen?
+model: the symbol for Hydrogen is H.
+
+user: which element has the symbol H?
+model: H is Hydrogen, element 1.
+
+user: which period is Hydrogen in?
+model: Hydrogen is in period 1.
+
+user: tell me about Hydrogen.
+model: Hydrogen has symbol H, atomic number 1, and sits in period 1.
+
+user: what is element 1?
+model: element 1 is Hydrogen (H), in period 1.
+user: which period is it in?
+model: Hydrogen is in period 1.

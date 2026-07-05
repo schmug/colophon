@@ -1,0 +1,19 @@
+user: what is element 29?
+model: element 29 is Copper (Cu), in period 4.
+
+user: what is the symbol for Copper?
+model: the symbol for Copper is Cu.
+
+user: which element has the symbol Cu?
+model: Cu is Copper, element 29.
+
+user: which period is Copper in?
+model: Copper is in period 4.
+
+user: tell me about Copper.
+model: Copper has symbol Cu, atomic number 29, and sits in period 4.
+
+user: what is element 29?
+model: element 29 is Copper (Cu), in period 4.
+user: which period is it in?
+model: Copper is in period 4.

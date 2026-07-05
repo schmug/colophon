@@ -1,0 +1,19 @@
+user: what is element 58?
+model: element 58 is Cerium (Ce), in period 6.
+
+user: what is the symbol for Cerium?
+model: the symbol for Cerium is Ce.
+
+user: which element has the symbol Ce?
+model: Ce is Cerium, element 58.
+
+user: which period is Cerium in?
+model: Cerium is in period 6.
+
+user: tell me about Cerium.
+model: Cerium has symbol Ce, atomic number 58, and sits in period 6.
+
+user: what is element 58?
+model: element 58 is Cerium (Ce), in period 6.
+user: which period is it in?
+model: Cerium is in period 6.

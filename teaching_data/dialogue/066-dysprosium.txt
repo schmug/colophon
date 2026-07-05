@@ -1,0 +1,19 @@
+user: what is element 66?
+model: element 66 is Dysprosium (Dy), in period 6.
+
+user: what is the symbol for Dysprosium?
+model: the symbol for Dysprosium is Dy.
+
+user: which element has the symbol Dy?
+model: Dy is Dysprosium, element 66.
+
+user: which period is Dysprosium in?
+model: Dysprosium is in period 6.
+
+user: tell me about Dysprosium.
+model: Dysprosium has symbol Dy, atomic number 66, and sits in period 6.
+
+user: what is element 66?
+model: element 66 is Dysprosium (Dy), in period 6.
+user: which period is it in?
+model: Dysprosium is in period 6.

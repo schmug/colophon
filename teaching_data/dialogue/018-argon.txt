@@ -1,0 +1,19 @@
+user: what is element 18?
+model: element 18 is Argon (Ar), in period 3.
+
+user: what is the symbol for Argon?
+model: the symbol for Argon is Ar.
+
+user: which element has the symbol Ar?
+model: Ar is Argon, element 18.
+
+user: which period is Argon in?
+model: Argon is in period 3.
+
+user: tell me about Argon.
+model: Argon has symbol Ar, atomic number 18, and sits in period 3.
+
+user: what is element 18?
+model: element 18 is Argon (Ar), in period 3.
+user: which period is it in?
+model: Argon is in period 3.

@@ -1,0 +1,19 @@
+user: what is element 88?
+model: element 88 is Radium (Ra), in period 7.
+
+user: what is the symbol for Radium?
+model: the symbol for Radium is Ra.
+
+user: which element has the symbol Ra?
+model: Ra is Radium, element 88.
+
+user: which period is Radium in?
+model: Radium is in period 7.
+
+user: tell me about Radium.
+model: Radium has symbol Ra, atomic number 88, and sits in period 7.
+
+user: what is element 88?
+model: element 88 is Radium (Ra), in period 7.
+user: which period is it in?
+model: Radium is in period 7.

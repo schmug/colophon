@@ -163,11 +163,12 @@ def confidence_readout(entropy, unknown, has_prompt=True):
 
 
 def load_corpus_files(src_dir: str):
-    """Mirrors colophon.load_corpus()'s file discovery but keeps each file's
-    raw text separate (never PAD-joined), so the suffix search in
+    """Mirrors colophon.load_corpus()'s file discovery (.yaml/.yml/.txt) but keeps
+    each file's raw text separate (never PAD-joined), so the suffix search in
     find_source_echo() can never match across an entry boundary."""
     paths = sorted(glob.glob(os.path.join(src_dir, "*.yaml")) +
-                   glob.glob(os.path.join(src_dir, "*.yml")))
+                   glob.glob(os.path.join(src_dir, "*.yml")) +
+                   glob.glob(os.path.join(src_dir, "*.txt")))
     files = []
     for path in paths:
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -1102,8 +1103,8 @@ def _load_mode(mode_id, npz_path, src_dir):
 
     files = load_corpus_files(src_dir)
     if not files:
-        print(f"warning [{mode_id}]: no .yaml/.yml files in {src_dir} -- the "
-              f"source-echo panel will report every prompt as absent")
+        print(f"warning [{mode_id}]: no .yaml/.yml/.txt files in {src_dir} -- "
+              f"the source-echo panel will report every prompt as absent")
     else:
         json_path = colophon.colophon_json_path(npz_path)
         try:

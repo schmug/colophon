@@ -1,0 +1,19 @@
+user: what is element 69?
+model: element 69 is Thulium (Tm), in period 6.
+
+user: what is the symbol for Thulium?
+model: the symbol for Thulium is Tm.
+
+user: which element has the symbol Tm?
+model: Tm is Thulium, element 69.
+
+user: which period is Thulium in?
+model: Thulium is in period 6.
+
+user: tell me about Thulium.
+model: Thulium has symbol Tm, atomic number 69, and sits in period 6.
+
+user: what is element 69?
+model: element 69 is Thulium (Tm), in period 6.
+user: which period is it in?
+model: Thulium is in period 6.

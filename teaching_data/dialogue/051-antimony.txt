@@ -1,0 +1,19 @@
+user: what is element 51?
+model: element 51 is Antimony (Sb), in period 5.
+
+user: what is the symbol for Antimony?
+model: the symbol for Antimony is Sb.
+
+user: which element has the symbol Sb?
+model: Sb is Antimony, element 51.
+
+user: which period is Antimony in?
+model: Antimony is in period 5.
+
+user: tell me about Antimony.
+model: Antimony has symbol Sb, atomic number 51, and sits in period 5.
+
+user: what is element 51?
+model: element 51 is Antimony (Sb), in period 5.
+user: which period is it in?
+model: Antimony is in period 5.

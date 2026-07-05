@@ -1,0 +1,19 @@
+user: what is element 50?
+model: element 50 is Tin (Sn), in period 5.
+
+user: what is the symbol for Tin?
+model: the symbol for Tin is Sn.
+
+user: which element has the symbol Sn?
+model: Sn is Tin, element 50.
+
+user: which period is Tin in?
+model: Tin is in period 5.
+
+user: tell me about Tin.
+model: Tin has symbol Sn, atomic number 50, and sits in period 5.
+
+user: what is element 50?
+model: element 50 is Tin (Sn), in period 5.
+user: which period is it in?
+model: Tin is in period 5.

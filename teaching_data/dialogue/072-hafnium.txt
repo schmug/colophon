@@ -1,0 +1,19 @@
+user: what is element 72?
+model: element 72 is Hafnium (Hf), in period 6.
+
+user: what is the symbol for Hafnium?
+model: the symbol for Hafnium is Hf.
+
+user: which element has the symbol Hf?
+model: Hf is Hafnium, element 72.
+
+user: which period is Hafnium in?
+model: Hafnium is in period 6.
+
+user: tell me about Hafnium.
+model: Hafnium has symbol Hf, atomic number 72, and sits in period 6.
+
+user: what is element 72?
+model: element 72 is Hafnium (Hf), in period 6.
+user: which period is it in?
+model: Hafnium is in period 6.

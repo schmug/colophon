@@ -1,0 +1,19 @@
+user: what is element 113?
+model: element 113 is Nihonium (Nh), in period 7.
+
+user: what is the symbol for Nihonium?
+model: the symbol for Nihonium is Nh.
+
+user: which element has the symbol Nh?
+model: Nh is Nihonium, element 113.
+
+user: which period is Nihonium in?
+model: Nihonium is in period 7.
+
+user: tell me about Nihonium.
+model: Nihonium has symbol Nh, atomic number 113, and sits in period 7.
+
+user: what is element 113?
+model: element 113 is Nihonium (Nh), in period 7.
+user: which period is it in?
+model: Nihonium is in period 7.

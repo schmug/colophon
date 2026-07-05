@@ -1,0 +1,19 @@
+user: what is element 47?
+model: element 47 is Silver (Ag), in period 5.
+
+user: what is the symbol for Silver?
+model: the symbol for Silver is Ag.
+
+user: which element has the symbol Ag?
+model: Ag is Silver, element 47.
+
+user: which period is Silver in?
+model: Silver is in period 5.
+
+user: tell me about Silver.
+model: Silver has symbol Ag, atomic number 47, and sits in period 5.
+
+user: what is element 47?
+model: element 47 is Silver (Ag), in period 5.
+user: which period is it in?
+model: Silver is in period 5.

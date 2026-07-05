@@ -1,0 +1,19 @@
+user: what is element 35?
+model: element 35 is Bromine (Br), in period 4.
+
+user: what is the symbol for Bromine?
+model: the symbol for Bromine is Br.
+
+user: which element has the symbol Br?
+model: Br is Bromine, element 35.
+
+user: which period is Bromine in?
+model: Bromine is in period 4.
+
+user: tell me about Bromine.
+model: Bromine has symbol Br, atomic number 35, and sits in period 4.
+
+user: what is element 35?
+model: element 35 is Bromine (Br), in period 4.
+user: which period is it in?
+model: Bromine is in period 4.

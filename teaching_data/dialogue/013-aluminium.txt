@@ -1,0 +1,19 @@
+user: what is element 13?
+model: element 13 is Aluminium (Al), in period 3.
+
+user: what is the symbol for Aluminium?
+model: the symbol for Aluminium is Al.
+
+user: which element has the symbol Al?
+model: Al is Aluminium, element 13.
+
+user: which period is Aluminium in?
+model: Aluminium is in period 3.
+
+user: tell me about Aluminium.
+model: Aluminium has symbol Al, atomic number 13, and sits in period 3.
+
+user: what is element 13?
+model: element 13 is Aluminium (Al), in period 3.
+user: which period is it in?
+model: Aluminium is in period 3.

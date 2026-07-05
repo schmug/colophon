@@ -1,0 +1,19 @@
+user: what is element 83?
+model: element 83 is Bismuth (Bi), in period 6.
+
+user: what is the symbol for Bismuth?
+model: the symbol for Bismuth is Bi.
+
+user: which element has the symbol Bi?
+model: Bi is Bismuth, element 83.
+
+user: which period is Bismuth in?
+model: Bismuth is in period 6.
+
+user: tell me about Bismuth.
+model: Bismuth has symbol Bi, atomic number 83, and sits in period 6.
+
+user: what is element 83?
+model: element 83 is Bismuth (Bi), in period 6.
+user: which period is it in?
+model: Bismuth is in period 6.

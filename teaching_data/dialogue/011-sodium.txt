@@ -1,0 +1,19 @@
+user: what is element 11?
+model: element 11 is Sodium (Na), in period 3.
+
+user: what is the symbol for Sodium?
+model: the symbol for Sodium is Na.
+
+user: which element has the symbol Na?
+model: Na is Sodium, element 11.
+
+user: which period is Sodium in?
+model: Sodium is in period 3.
+
+user: tell me about Sodium.
+model: Sodium has symbol Na, atomic number 11, and sits in period 3.
+
+user: what is element 11?
+model: element 11 is Sodium (Na), in period 3.
+user: which period is it in?
+model: Sodium is in period 3.

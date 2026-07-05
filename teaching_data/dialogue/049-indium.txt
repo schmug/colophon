@@ -1,0 +1,19 @@
+user: what is element 49?
+model: element 49 is Indium (In), in period 5.
+
+user: what is the symbol for Indium?
+model: the symbol for Indium is In.
+
+user: which element has the symbol In?
+model: In is Indium, element 49.
+
+user: which period is Indium in?
+model: Indium is in period 5.
+
+user: tell me about Indium.
+model: Indium has symbol In, atomic number 49, and sits in period 5.
+
+user: what is element 49?
+model: element 49 is Indium (In), in period 5.
+user: which period is it in?
+model: Indium is in period 5.

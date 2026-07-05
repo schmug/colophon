@@ -1,0 +1,19 @@
+user: what is element 70?
+model: element 70 is Ytterbium (Yb), in period 6.
+
+user: what is the symbol for Ytterbium?
+model: the symbol for Ytterbium is Yb.
+
+user: which element has the symbol Yb?
+model: Yb is Ytterbium, element 70.
+
+user: which period is Ytterbium in?
+model: Ytterbium is in period 6.
+
+user: tell me about Ytterbium.
+model: Ytterbium has symbol Yb, atomic number 70, and sits in period 6.
+
+user: what is element 70?
+model: element 70 is Ytterbium (Yb), in period 6.
+user: which period is it in?
+model: Ytterbium is in period 6.

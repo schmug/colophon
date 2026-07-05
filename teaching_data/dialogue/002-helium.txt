@@ -1,0 +1,19 @@
+user: what is element 2?
+model: element 2 is Helium (He), in period 1.
+
+user: what is the symbol for Helium?
+model: the symbol for Helium is He.
+
+user: which element has the symbol He?
+model: He is Helium, element 2.
+
+user: which period is Helium in?
+model: Helium is in period 1.
+
+user: tell me about Helium.
+model: Helium has symbol He, atomic number 2, and sits in period 1.
+
+user: what is element 2?
+model: element 2 is Helium (He), in period 1.
+user: which period is it in?
+model: Helium is in period 1.

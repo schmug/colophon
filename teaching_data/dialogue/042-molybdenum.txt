@@ -1,0 +1,19 @@
+user: what is element 42?
+model: element 42 is Molybdenum (Mo), in period 5.
+
+user: what is the symbol for Molybdenum?
+model: the symbol for Molybdenum is Mo.
+
+user: which element has the symbol Mo?
+model: Mo is Molybdenum, element 42.
+
+user: which period is Molybdenum in?
+model: Molybdenum is in period 5.
+
+user: tell me about Molybdenum.
+model: Molybdenum has symbol Mo, atomic number 42, and sits in period 5.
+
+user: what is element 42?
+model: element 42 is Molybdenum (Mo), in period 5.
+user: which period is it in?
+model: Molybdenum is in period 5.

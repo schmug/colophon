@@ -1,0 +1,19 @@
+user: what is element 115?
+model: element 115 is Moscovium (Mc), in period 7.
+
+user: what is the symbol for Moscovium?
+model: the symbol for Moscovium is Mc.
+
+user: which element has the symbol Mc?
+model: Mc is Moscovium, element 115.
+
+user: which period is Moscovium in?
+model: Moscovium is in period 7.
+
+user: tell me about Moscovium.
+model: Moscovium has symbol Mc, atomic number 115, and sits in period 7.
+
+user: what is element 115?
+model: element 115 is Moscovium (Mc), in period 7.
+user: which period is it in?
+model: Moscovium is in period 7.

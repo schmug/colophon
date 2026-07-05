@@ -1,0 +1,19 @@
+user: what is element 100?
+model: element 100 is Fermium (Fm), in period 7.
+
+user: what is the symbol for Fermium?
+model: the symbol for Fermium is Fm.
+
+user: which element has the symbol Fm?
+model: Fm is Fermium, element 100.
+
+user: which period is Fermium in?
+model: Fermium is in period 7.
+
+user: tell me about Fermium.
+model: Fermium has symbol Fm, atomic number 100, and sits in period 7.
+
+user: what is element 100?
+model: element 100 is Fermium (Fm), in period 7.
+user: which period is it in?
+model: Fermium is in period 7.
