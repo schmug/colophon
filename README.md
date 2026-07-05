@@ -163,10 +163,14 @@ characters actually drove the prediction), a **top-k next-char inspector** with
 where the real next character ranked, an **embedding-space panel** (the entire
 character embedding table, PCA-projected to 2D so it fits on screen exactly,
 with click-to-see nearest neighbors by cosine similarity), and the OSAI
-**openness scorecard**. It is framed as the honest counterpart to black-box
-"observability" tools: a hosted API exposes none of this, and where a tool
-like glassboxllm has to *simulate* per-token confidence, Colophon reads it
-straight from the weights.
+**openness scorecard**. When a prompt matches the corpus verbatim, the source
+panel's `file:line` label links to a **served view of the actual training
+file** — rendered from the same in-memory corpus the model trained on, matched
+line highlighted, with a per-corpus provenance footer (for the real index:
+CC BY 4.0, doi:10.5281/zenodo.15386042). It is framed as the honest counterpart
+to black-box "observability" tools: a hosted API exposes none of this, and
+where a tool like glassboxllm has to *simulate* per-token confidence, Colophon
+reads it straight from the weights.
 
 ### Teaching mode — a corpus you can grade by eye
 
@@ -192,6 +196,32 @@ That's the "fluent, certain, and wrong" failure made legible on common
 knowledge. The 118 files are checked in and regenerable
 (`python teaching_data/build_elements.py`), so the data can't silently drift from
 its cited source.
+
+### Kana mode — off-map is about the model, not the text
+
+Everywhere else in this README the Japanese prompt 日本語で書いてください is the
+canonical off-map example: ten characters no model here has ever seen. A third
+corpus makes that lesson precise — **the 71 hiragana of a learner's kana chart**
+(the 46 modern gojūon plus the 25 voiced dakuten/handakuten forms), two lines
+per kana (`kana: し` / `romaji: shi`, traditional Hepburn).
+
+```bash
+python colophon.py --src teaching_data/kana --out kana.npz --steps 3000 train
+python marginalia.py        # a third "Kana chart" toggle appears
+```
+
+Now the same canonical prompt splits in two: on the kana model the four kanji
+(日 本 語 書) stay off-map while the six hiragana (で い て く だ さ) light up
+as known, character by character, in the heatmap. Katakana (カタカナ) — the same
+language in a different script — still trips the flag. "Off-map" is a fact about
+the pairing of a model with its training data, not about the text, and this
+corpus exists so you can watch that be true.
+
+The 71 files are checked in and regenerable (`python teaching_data/build_kana.py`).
+Two exclusions are deliberate: digits (no `number:` field — the characters this
+corpus shares with the other two shrink to lowercase letters, colon, space, and
+newline), and the voiced kana are *included* because で and だ in the canonical
+prompt are voiced — without them the clean kanji-vs-kana split would muddy.
 
 ## Incipit — multiturn glass-box chat
 
@@ -280,6 +310,7 @@ help page instead of crashing.
   reproduce as reliably. That's exactly what the entropy/off-map signals are
   for — the imperfection is auditable instead of hidden.
 
+
 ## Honest limits — read before showing anyone
 
 - **It is not intelligent.** A char-level MLP models local character statistics.
@@ -320,9 +351,16 @@ If you train Colophon on the real index (`--src ./osai`), your corpus is the
 index's CC-BY content — cite it per its license. The Colophon code is MIT (see
 `LICENSE`).
 
-The periodic-table teaching corpus (`teaching_data/`) is built from element
-facts — atomic numbers, symbols, and IUPAC names/spellings — which are
+The periodic-table teaching corpus (`teaching_data/elements/`) is built from
+element facts — atomic numbers, symbols, and IUPAC names/spellings — which are
 public-domain data (not copyrightable). Source of record: the
 [IUPAC Periodic Table of the Elements](https://iupac.org/what-we-do/periodic-table-of-elements/).
 Group is deliberately omitted: the f-block's group assignment is genuinely
 unsettled, and this corpus ships only undisputed facts.
+
+The kana teaching corpus (`teaching_data/kana/`) is built from the hiragana
+gojūon chart — likewise public-domain facts. Romanization follows traditional
+Hepburn as printed on learners' charts (し shi, ち chi, つ tsu, ふ fu, を wo;
+ぢ/づ collapse onto ji/zu — the collision is the Hepburn fact, not an error).
+Archaic ゐ/ゑ and the small kana are excluded: undisputed modern chart facts
+only.

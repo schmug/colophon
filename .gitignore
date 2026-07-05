@@ -12,6 +12,10 @@ dialogue_k64.npz
 elements_k64.json
 dialogue_k64.json
 
+# Generated kana model (regenerate: python colophon.py --src teaching_data/kana --out kana.npz --steps 3000 train)
+kana.npz
+kana.json
+
 # Preview/dev launch config (local convenience, machine-specific ports)
 .claude/launch.json
 
