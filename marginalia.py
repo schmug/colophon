@@ -978,8 +978,8 @@ def _load_mode(mode_id, npz_path, src_dir):
 
     files = load_corpus_files(src_dir)
     if not files:
-        print(f"warning [{mode_id}]: no .yaml/.yml files in {src_dir} -- the "
-              f"source-echo panel will report every prompt as absent")
+        print(f"warning [{mode_id}]: no .yaml/.yml/.txt files in {src_dir} -- "
+              f"the source-echo panel will report every prompt as absent")
     else:
         json_path = colophon.colophon_json_path(npz_path)
         try:

@@ -29,9 +29,9 @@ its incipit/dist/ output, so production runs with Python alone.
 
 Usage:
   python colophon.py --src teaching_data/elements --out elements_k64.npz \
-      --steps 30000 --K 64 --E 64 --H 512 train
+      --steps 60000 --K 64 --E 64 --H 512 --lr 0.0005 train
   python colophon.py --src teaching_data/dialogue --out dialogue_k64.npz \
-      --steps 30000 --K 64 --E 64 --H 512 train
+      --steps 60000 --K 64 --E 64 --H 512 --lr 0.0005 train
   (cd incipit && npm install && npm run build)     # once, for the UI
   python incipit.py                                 # http://127.0.0.1:8790
 """
@@ -65,8 +65,8 @@ MODE_META = {
         "acts": [1, 2],
         "format_default": "raw",
         "train_hint": ("python colophon.py --src teaching_data/elements "
-                       "--out elements_k64.npz --steps 30000 --K 64 --E 64 "
-                       "--H 512 train"),
+                       "--out elements_k64.npz --steps 60000 --K 64 --E 64 "
+                       "--H 512 --lr 0.0005 train"),
     },
     "dialogue": {
         "label": "Periodic table (dialogue, K=64)",
@@ -77,8 +77,8 @@ MODE_META = {
         "acts": [3],
         "format_default": "chat",
         "train_hint": ("python colophon.py --src teaching_data/dialogue "
-                       "--out dialogue_k64.npz --steps 30000 --K 64 --E 64 "
-                       "--H 512 train"),
+                       "--out dialogue_k64.npz --steps 60000 --K 64 --E 64 "
+                       "--H 512 --lr 0.0005 train"),
     },
     "osai": {
         "label": "Openness index (K=12)",
@@ -140,7 +140,7 @@ def parse_turn_request(body):
             "stop": s.get("stop") if isinstance(s.get("stop"), str) else None,
             "banned_chars": s.get("banned_chars") or [],
         }
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None, (400, "sampling values must be numeric")
     if sampling["max_chars"] < 1:
         return None, (400, "max_chars must be >= 1")

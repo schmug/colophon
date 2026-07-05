@@ -107,6 +107,13 @@ class ParseTurnRequest(unittest.TestCase):
                        "banned_chars")
         self.assert400(self._ok(sampling={"stop": "long stop str"}), "stop")
 
+    def test_non_finite_sampling_is_400_not_crash(self):
+        for field in ("temperature", "top_k", "seed", "max_chars"):
+            for bad in (float("inf"), float("nan")):
+                req, err = I.parse_turn_request(self._ok(sampling={field: bad}))
+                self.assertIsNone(req, f"{field}={bad} should be rejected")
+                self.assertEqual(err[0], 400, f"{field}={bad} should 400")
+
     def test_oversized_tape_is_413(self):
         body = {"turns": [{"role": "user", "text": "x" * (I.MAX_TAPE_CHARS + 1)}]}
         req, err = I.parse_turn_request(body)

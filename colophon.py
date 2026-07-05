@@ -883,8 +883,9 @@ def main():
                     help="hidden layer width (MLP path only)")
     ap.add_argument("--lr", type=float, default=3e-3,
                     help="Adam learning rate. The K=64 dialogue teaching model "
-                         "needs a lower LR (e.g. 1e-3) to cleanly memorize the "
-                         "harder dialogue corpus; the flagship default stays 3e-3.")
+                         "needs a lower LR (e.g. 5e-4 (0.0005)) to cleanly "
+                         "memorize the harder dialogue corpus; the flagship "
+                         "default stays 3e-3.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("train")
