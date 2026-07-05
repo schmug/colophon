@@ -213,6 +213,58 @@ class EmbeddingsWrapper(unittest.TestCase):
         self.assertEqual(got, want)
 
 
+class SourcePageRender(unittest.TestCase):
+    """source_page() renders one training file: numbered anchored lines,
+    optional highlight, escaped everything, provenance footer."""
+
+    def test_numbers_anchors_and_content(self):
+        page = M.source_page("Periodic table", "018_argon.yaml",
+                             "number: 18\nsymbol: Ar\n")
+        self.assertIn('<tr id="L1">', page)
+        self.assertIn('<tr id="L2">', page)
+        self.assertIn("number: 18", page)
+        self.assertIn("018_argon.yaml", page)
+        self.assertIn("Periodic table", page)
+
+    def test_highlight_only_requested_line(self):
+        page = M.source_page("x", "f.yaml", "a: 1\nb: 2\n", line=2)
+        self.assertIn('<tr id="L2" class="hit">', page)
+        self.assertNotIn('<tr id="L1" class="hit">', page)
+
+    def test_no_line_means_no_highlight(self):
+        page = M.source_page("x", "f.yaml", "a: 1\n")
+        self.assertNotIn('class="hit"', page)
+
+    def test_corpus_text_is_escaped(self):
+        page = M.source_page("x", "f.yaml", '<b>&"</b>\n')
+        self.assertNotIn("<b>", page)
+        self.assertIn("&lt;b&gt;", page)
+
+    def test_label_and_filename_are_escaped(self):
+        page = M.source_page("<lab>", "<f>.yaml", "a\n")
+        self.assertNotIn("<lab>", page)
+        self.assertIn("&lt;lab&gt;", page)
+        self.assertNotIn("<f>.yaml", page)
+
+    def test_footer_shows_note_url_and_sha(self):
+        page = M.source_page("x", "f.yaml", "a\n", note="CC BY 4.0",
+                             url="https://example.org/idx", sha="ab12cd")
+        self.assertIn("CC BY 4.0", page)
+        self.assertIn('href="https://example.org/idx"', page)
+        self.assertIn("ab12cd", page)
+
+    def test_footer_escapes_sha(self):
+        # sha is escaped like every other footer value (defends the docstring's
+        # "everything user/corpus-derived is html.escape()'d" contract).
+        page = M.source_page("x", "f.yaml", "a\n", sha="<b>")
+        self.assertNotIn("<b>", page)
+        self.assertIn("&lt;b&gt;", page)
+
+    def test_page_ships_zero_javascript(self):
+        page = M.source_page("x", "f.yaml", "a\n")
+        self.assertNotIn("<script", page)
+
+
 def _make_model():
     """A small but real model tuple, as a mode config expects it."""
     text, _ = C.load_corpus(C.DEFAULT_SRC)
@@ -385,6 +437,117 @@ class HandlerDegraded(unittest.TestCase):
             server.close()
 
 
+SOURCE_FILES = (("entry.yaml", "class: open\nlicense: mit\n"),
+                ("evil.yaml", '<script>alert("x")</script>\n'))
+
+
+class SourceRoute(unittest.TestCase):
+    """GET /source serves one training file from the in-memory corpus as an
+    HTML page. Lookup is by exact name against (name, text) pairs -- no
+    filesystem access at request time (a `../` filename must 404, not read
+    disk)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = _ServerFixture(_make_modes(_make_model(), files=SOURCE_FILES))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def test_serves_file_with_highlight(self):
+        status, headers, body = self.server.get("/source?file=entry.yaml&line=2")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        page = body.decode("utf-8")
+        self.assertIn("license: mit", page)
+        self.assertIn('<tr id="L2" class="hit">', page)
+        self.assertIn('<tr id="L1">', page)
+
+    def test_missing_line_renders_without_highlight(self):
+        status, _, body = self.server.get("/source?file=entry.yaml")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b'class="hit"', body)
+
+    def test_out_of_range_line_renders_without_highlight(self):
+        status, _, body = self.server.get("/source?file=entry.yaml&line=99")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b'class="hit"', body)
+
+    def test_non_integer_line_400(self):
+        status, headers, _ = self.server.get("/source?file=entry.yaml&line=nope")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_unknown_file_404(self):
+        status, headers, _ = self.server.get("/source?file=../colophon.py")
+        self.assertEqual(status, 404)
+        # Our handler's header, not stdlib send_error()'s "text/html;charset=utf-8"
+        # (no space) -- this pins that the 404 came from the route's own lookup.
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_unknown_mode_400_as_html(self):
+        status, headers, _ = self.server.get("/source?mode=nope&file=entry.yaml")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_absent_mode_503_as_html(self):
+        server = _ServerFixture(_make_modes(None, files=SOURCE_FILES))
+        try:
+            status, headers, _ = server.get("/source?file=entry.yaml")
+            self.assertEqual(status, 503)
+            self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        finally:
+            server.close()
+
+    def test_api_errors_stay_json(self):
+        # The html_errors switch must not leak into the /api/ routes.
+        status, headers, body = self.server.get("/api/analyze?mode=nope&prompt=x")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+        self.assertIn("error", json.loads(body))
+
+    def test_corpus_text_is_escaped_end_to_end(self):
+        status, _, body = self.server.get("/source?file=evil.yaml")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b"<script", body)  # the page ships zero JS at all
+        self.assertIn(b"&lt;script&gt;", body)
+
+
+class SourceProvenance(unittest.TestCase):
+    """Every mode documents where its corpus comes from, and the note reaches
+    the served /source page. The OSAI note stays honest about sample_data
+    being original stand-ins, not index entries (keep-it-honest rule)."""
+
+    def test_every_mode_has_a_source_note(self):
+        for mid, meta in M.MODE_META.items():
+            self.assertTrue(meta.get("source_note", "").strip(), mid)
+
+    def test_osai_cites_the_index_and_flags_the_sample(self):
+        note = M.MODE_META["osai"]["source_note"]
+        self.assertIn("CC BY 4.0", note)
+        self.assertIn("10.5281/zenodo.15386042", note)
+        self.assertIn("sample_data", note)
+        self.assertIn("codeberg.org", M.MODE_META["osai"]["source_url"])
+
+    def test_generated_corpora_cite_their_generators(self):
+        self.assertIn("build_elements.py", M.MODE_META["elements"]["source_note"])
+        self.assertIn("build_kana.py", M.MODE_META["kana"]["source_note"])
+
+    def test_note_reaches_the_served_page(self):
+        modes = {"osai": {"model": _make_model(),
+                          "files": (("entry.yaml", "class: open\n"),),
+                          **M.MODE_META["osai"]}}
+        server = _ServerFixture(modes)
+        try:
+            status, _, body = server.get("/source?file=entry.yaml")
+            self.assertEqual(status, 200)
+            self.assertIn(b"10.5281/zenodo.15386042", body)
+            self.assertIn(b"codeberg.org", body)
+        finally:
+            server.close()
+
+
 class IndexHtmlContract(unittest.TestCase):
     """The single-page inspector must ship all six regions (incl. the full
     context-window sidebar) + the black-box framing banner, and must not
@@ -415,6 +578,14 @@ class IndexHtmlContract(unittest.TestCase):
         self.assertNotIn("http://", stripped)
         self.assertNotIn("https://", html)
         self.assertNotIn("cdn", html.lower())
+
+    def test_source_match_links_to_source_view(self):
+        html = M.INDEX_HTML
+        self.assertIn("'/source?mode='", html)
+        self.assertIn("noopener", html)
+
+    def test_source_link_carries_line_fragment(self):
+        self.assertIn("'#L'", M.INDEX_HTML)
 
 
 class ModeRouting(unittest.TestCase):

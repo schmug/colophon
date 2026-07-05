@@ -109,6 +109,11 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   overrides the friendly percentage on OOD prompts, keeping the "confidence
   under-reads OOD" lesson visible), the off-map/unknown-char flag, a sampled
   continuation, and a literal source-in-training-data match (`find_source_echo()`).
+  The matched `file:line` links to `GET /source` — a zero-JS server-rendered
+  view of that training file from the in-memory corpus (exact-name lookup, so
+  no filesystem access at request time), matched line highlighted, with a
+  per-mode provenance footer (`source_note`/`source_url` in `MODE_META`; OSAI
+  cites CC-BY + doi) and the corpus sha256.
   Inspector: a per-character entropy heatmap, the literal K-char context window,
   occlusion-based context saliency, a top-k next-char inspector, session
   aggregates, and the OSAI scorecard. Every signal is read from the weights via
@@ -125,12 +130,15 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
 - `test_marginalia.py` — stdlib `unittest`; checks `analyze_prompt()` faithfully
   wraps `inspect_prompt()` / `prompt_confidence()` (per-position records + the
   off-map signal on an OOD prompt), that `context_saliency()` and the
-  `/api/saliency` route behave (incl. 400 on a bad `pos`), that
-  `confidence_readout()` inverts entropy, overrides on off-map, and gives an empty
-  prompt no number, that `find_source_echo()` / the corpus helpers locate
-  verbatim training-data matches, and the **mode routing** (`/api/modes`
-  availability, `?mode=` picks the model for both analyze + saliency, unknown mode
-  → 400, absent mode → 503) via a live ephemeral server.
+  `/api/saliency` route behave (incl. 400 on a bad `pos`), that `source_page()` /
+  the `/source` route serve a training file from memory with escaping and
+  highlight (400/503/404 on bad mode/absent model/unknown file, HTML errors not
+  JSON), that every mode carries a provenance note, that `confidence_readout()`
+  inverts entropy, overrides on off-map, and gives an empty prompt no number, that
+  `find_source_echo()` / the corpus helpers locate verbatim training-data matches,
+  and the **mode routing** (`/api/modes` availability, `?mode=` picks the model
+  for both analyze + saliency, unknown mode → 400, absent mode → 503) via a live
+  ephemeral server.
 - `README.md` — full concept/problem/solution + honest limits + counter-position +
   OSAI attribution.
 
