@@ -378,6 +378,19 @@ def make_handler(modes, default_mode=DEFAULT_MODE, dist_dir=DIST_DIR):
                 self._send_json(_modes_payload())
             elif parsed.path == "/api/scorecard":
                 self._send_json(colophon.scorecard_section())
+            elif parsed.path == "/corpus":
+                qs = urllib.parse.parse_qs(parsed.query)
+                mode = qs.get("mode", [default_mode])[0]
+                cfg = self._mode_cfg(mode, html_errors=True)
+                if cfg is None:
+                    return
+                files = cfg.get("files", ())
+                body = marginalia.corpus_index_page(
+                    cfg.get("label", ""), files, mode,
+                    note=cfg.get("source_note", ""),
+                    url=cfg.get("source_url", ""),
+                    sha=marginalia.corpus_sha256(files) if files else "")
+                self._send(200, "text/html; charset=utf-8", body.encode("utf-8"))
             elif parsed.path == "/source":
                 qs = urllib.parse.parse_qs(parsed.query)
                 mode = qs.get("mode", [default_mode])[0]

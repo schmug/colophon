@@ -299,6 +299,43 @@ class IncipitSourceRoute(unittest.TestCase):
         self.assertNotIn(b"npm run build", body)
 
 
+class IncipitCorpusRoute(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = _ServerFixture(
+            _make_modes(_make_model(), files=INCIPIT_SOURCE_FILES))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def test_lists_files_as_html(self):
+        status, headers, body = self.server.get("/corpus?mode=elements64")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        page = body.decode("utf-8")
+        self.assertIn("file=q.txt", page)
+        self.assertIn("file=evil.txt", page)
+
+    def test_footer_has_provenance_note(self):
+        _, _, body = self.server.get("/corpus?mode=elements64")
+        self.assertIn(b"build_elements.py", body)
+
+    def test_unknown_mode_400_html(self):
+        status, headers, _ = self.server.get("/corpus?mode=nope")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_absent_model_503_html(self):
+        status, headers, _ = self.server.get("/corpus?mode=dialogue")
+        self.assertEqual(status, 503)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_not_swallowed_by_static(self):
+        _, _, body = self.server.get("/corpus?mode=elements64")
+        self.assertNotIn(b"npm run build", body)
+
+
 class ServerRouting(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
