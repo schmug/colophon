@@ -1,5 +1,5 @@
 import type { ModeInfo, TapeFormat, Turn } from '../types'
-import { buildTapeCells, windowSpan } from '../tapeUtils'
+import { buildTapeCells, fellOffBefore, windowSpan } from '../tapeUtils'
 
 const DISPLAY: Record<string, string> = { ' ': '␣', '\n': '⏎', '\t': '⇥' }
 const show = (ch: string) => DISPLAY[ch] ?? ch
@@ -20,7 +20,7 @@ export function TapePanel(props: {
   const cells = buildTapeCells(turns, format)
   const span = focusPos !== null && K ? windowSpan(focusPos, K) : null
   const inWindow = (i: number) => span !== null && i >= span.start && i < span.end
-  const fellOff = K !== null && tape.length > K ? tape.length - K : 0
+  const fellOff = fellOffBefore(tape.length, K)
   return (
     <aside className="panel tape-panel">
       <h2>The tape</h2>
@@ -48,13 +48,14 @@ export function TapePanel(props: {
         tape {tape.length} chars · window K={K ?? '?'}
         {fellOff > 0 && (
           <span className="fell-off"> · {fellOff} chars beyond the newest
-            prediction's reach</span>
+            prediction's reach — struck out below: the model can no longer
+            see them</span>
         )}
       </div>
       <div className="tape">
         {cells.map((c, i) => (
           <span key={i}
-            className={`tape-cell ${c.role}${inWindow(i) ? ' in-window' : ''}`}
+            className={`tape-cell ${c.role}${inWindow(i) ? ' in-window' : ''}${i < fellOff ? ' fell-off-cell' : ''}`}
             title={c.role === 'marker' ? 'format scaffold (role marker)' : c.role}>
             {show(c.char)}
           </span>
