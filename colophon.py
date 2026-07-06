@@ -29,11 +29,11 @@ Subcommands:
            example prompts assume the OSAI-index schema; on a --src that
            doesn't use it, demo warns instead of mislabeling in-corpus text.
 
-Usage:
+Usage (global flags go BEFORE the subcommand -- they live on the parent parser):
   python colophon.py demo                       # runs end-to-end on bundled data
-  python colophon.py demo --src /path/to/osai   # use a real clone of the index
-  python colophon.py train --steps 8000 --src /path/to/osai
-  python colophon.py generate --prompt "availability_weights"
+  python colophon.py --src /path/to/osai demo   # use a real clone of the index
+  python colophon.py --src /path/to/osai --steps 8000 train
+  python colophon.py generate --prompt "weights_basemodel:"
 
 Data attribution: the bundled sample mimics the schema of the European Open
 Source AI Index (CC-BY 4.0, doi:10.5281/zenodo.15386042). When using the real
