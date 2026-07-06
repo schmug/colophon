@@ -619,6 +619,57 @@ class SourceProvenance(unittest.TestCase):
             server.close()
 
 
+class CorpusRoute(unittest.TestCase):
+    """GET /corpus lists a mode's whole corpus as a zero-JS HTML page, each
+    file linking to /source. Promptless: no verbatim match required."""
+
+    @classmethod
+    def setUpClass(cls):
+        modes = {"osai": {"model": _make_model(), "files": SOURCE_FILES,
+                          "label": "Openness index",
+                          "source_note": "cite the source",
+                          "source_url": "https://example.org/db"}}
+        cls.server = _ServerFixture(modes)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def test_lists_every_file_as_html(self):
+        status, headers, body = self.server.get("/corpus")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        page = body.decode("utf-8")
+        for name, _ in SOURCE_FILES:
+            self.assertIn(f"file={name}", page)
+
+    def test_links_round_trip_to_source(self):
+        for name, _ in SOURCE_FILES:
+            status, _, _ = self.server.get(f"/source?mode=osai&file={name}")
+            self.assertEqual(status, 200)
+
+    def test_footer_carries_provenance(self):
+        _, _, body = self.server.get("/corpus")
+        page = body.decode("utf-8")
+        self.assertIn("cite the source", page)
+        self.assertIn("https://example.org/db", page)
+
+    def test_unknown_mode_400_html(self):
+        status, headers, _ = self.server.get("/corpus?mode=nope")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_absent_model_503_html(self):
+        server = _ServerFixture({"osai": {"model": None, "files": SOURCE_FILES,
+                                          "label": "x"}})
+        try:
+            status, headers, _ = server.get("/corpus")
+            self.assertEqual(status, 503)
+            self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        finally:
+            server.close()
+
+
 class IndexHtmlContract(unittest.TestCase):
     """The single-page inspector must ship all six regions (incl. the full
     context-window sidebar) + the black-box framing banner, and must not
@@ -657,6 +708,9 @@ class IndexHtmlContract(unittest.TestCase):
 
     def test_source_link_carries_line_fragment(self):
         self.assertIn("'#L'", M.INDEX_HTML)
+
+    def test_index_has_browse_corpus_link(self):
+        self.assertIn('id="browse-corpus"', M.INDEX_HTML)
 
 
 class ModeRouting(unittest.TestCase):

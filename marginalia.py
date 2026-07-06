@@ -493,6 +493,7 @@ not guessed at in JavaScript. Pick a corpus:</p>
   <div class="muted">source in training data (literal longest-suffix match, ground truth):</div>
   <div id="source-label" class="muted">&nbsp;</div>
   <div id="source-snippet" class="continuation"></div>
+  <div class="muted" style="margin-top:.35rem"><a id="browse-corpus" href="/corpus" target="_blank" rel="noopener">browse the full corpus &rarr;</a> &mdash; read every training file, no prompt needed</div>
 </div>
 
 <div class="panel">
@@ -573,6 +574,7 @@ const confPctEl = $('conf-pct'), verdictEl = $('verdict'), confFill = $('conf-fi
 const entropyVal = $('entropy-val'), offmapEl = $('offmap');
 const continuationEl = $('continuation');
 const sourceLabelEl = $('source-label'), sourceSnippetEl = $('source-snippet');
+const browseCorpusEl = $('browse-corpus');
 
 const VERDICT_LEVELS = ['confident', 'unsure', 'struggling', 'off-map', 'none'];
 
@@ -920,6 +922,7 @@ function renderExamples(mode) {
 
 function applyMode(mode) {
   activeMode = mode.id;
+  if (browseCorpusEl) browseCorpusEl.href = '/corpus?mode=' + encodeURIComponent(activeMode);
   modeBlurbEl.textContent = mode.blurb;
   modeToggleEl.querySelectorAll('button').forEach(b =>
     b.classList.toggle('active', b.dataset.mode === mode.id));
@@ -1137,6 +1140,19 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                                    note=cfg.get("source_note", ""),
                                    url=cfg.get("source_url", ""),
                                    sha=corpus_sha256(files) if files else "")
+                self._send(200, "text/html; charset=utf-8", body.encode("utf-8"))
+            elif parsed.path == "/corpus":
+                qs = urllib.parse.parse_qs(parsed.query)
+                cfg = self._mode_cfg(qs, html_errors=True)
+                if cfg is None:
+                    return
+                mode = qs.get("mode", [default_mode])[0]
+                files = cfg.get("files", ())
+                body = corpus_index_page(
+                    cfg.get("label", ""), files, mode,
+                    note=cfg.get("source_note", ""),
+                    url=cfg.get("source_url", ""),
+                    sha=corpus_sha256(files) if files else "")
                 self._send(200, "text/html; charset=utf-8", body.encode("utf-8"))
             else:
                 self.send_error(404)
