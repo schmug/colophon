@@ -798,6 +798,80 @@ class ModeDegraded(unittest.TestCase):
             server.close()
 
 
+class ModeTraining(unittest.TestCase):
+    """The training section rides from the paired colophon.json through
+    _load_mode() into /api/modes, so the page can show how each model was
+    trained (steps, final loss, the loss-curve sparkline). Old JSONs without
+    the field -- or no json on disk at all -- must degrade to training: None,
+    never a crash, and the mode stays listed."""
+
+    TRAINING = {"steps": 30, "final_loss": 1.5, "parameters": 999,
+                "loss_history": [[1, 2.0], [10, 1.8], [30, 1.5]]}
+
+    def _write_npz(self, tmpdir):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, _, _ = C.build_vocab(text)
+        p = C.init_params(len(chars), 8, 4, 16, seed=0)
+        npz = os.path.join(tmpdir, "model.npz")
+        C.save_weights(p, chars, path=npz)
+        return npz
+
+    def _serve_mode(self, training):
+        modes = {"osai": {"model": _make_model(), "files": (), "label": "o",
+                          "blurb": "", "examples": [], "training": training}}
+        return _ServerFixture(modes)
+
+    def test_load_mode_reads_training_from_paired_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            npz = self._write_npz(d)
+            with open(C.colophon_json_path(npz), "w") as f:
+                json.dump({"data": {}, "training": self.TRAINING}, f)
+            model, _, training = M._load_mode("osai", npz, C.DEFAULT_SRC)
+        self.assertIsNotNone(model)
+        self.assertEqual(training, self.TRAINING)
+
+    def test_load_mode_without_json_returns_none_training(self):
+        with tempfile.TemporaryDirectory() as d:
+            npz = self._write_npz(d)
+            model, files, training = M._load_mode("osai", npz, C.DEFAULT_SRC)
+        self.assertIsNotNone(model)
+        self.assertTrue(files, "the corpus still loads without a json")
+        self.assertIsNone(training)
+
+    def test_modes_payload_carries_loss_history(self):
+        server = self._serve_mode(dict(self.TRAINING, arch="mlp"))
+        try:
+            _, _, body = server.get("/api/modes")
+        finally:
+            server.close()
+        mode = json.loads(body)["modes"][0]
+        self.assertEqual(mode["training"]["loss_history"],
+                         self.TRAINING["loss_history"])
+        self.assertEqual(mode["training"]["steps"], 30)
+        self.assertEqual(mode["training"]["final_loss"], 1.5)
+        self.assertEqual(mode["training"]["parameters"], 999)
+        self.assertNotIn("arch", mode["training"],
+                         "the payload picks its keys, not the whole manifest")
+
+    def test_modes_payload_none_training_when_absent(self):
+        # An old colophon.json (or none at all) -> training is None and the
+        # mode is still listed and available.
+        server = self._serve_mode(None)
+        try:
+            _, _, body = server.get("/api/modes")
+        finally:
+            server.close()
+        mode = json.loads(body)["modes"][0]
+        self.assertTrue(mode["available"])
+        self.assertIsNone(mode["training"])
+
+    def test_index_html_renders_the_training_line(self):
+        html = M.INDEX_HTML
+        self.assertIn('id="mode-training"', html)
+        self.assertIn("renderModeTraining", html)
+        self.assertIn("buildSparkline", html)
+
+
 class LoadModel(unittest.TestCase):
     def _write_npz(self, tmpdir, **arrays):
         path = os.path.join(tmpdir, "model.npz")

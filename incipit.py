@@ -475,7 +475,7 @@ def main():
     modes = {}
     for mode_id, meta in MODE_META.items():
         npz_path, src_dir = sources[mode_id]
-        model, files = marginalia._load_mode(mode_id, npz_path, src_dir)
+        model, files, _training = marginalia._load_mode(mode_id, npz_path, src_dir)
         modes[mode_id] = {"model": model, "files": files,
                           "params": colophon.n_params(model[0]) if model
                                     else None,

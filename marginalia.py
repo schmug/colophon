@@ -444,6 +444,7 @@ INDEX_HTML = """<!DOCTYPE html>
   td.open { color: #2a6; } td.partial { color: #c90; } td.closed { color: #d33; }
   .error { color: #d33; }
   #embed-plot svg { max-width: 100%; height: auto; border: 1px solid #8884; border-radius: 6px; }
+  #mode-training svg { vertical-align: middle; margin-left: .5rem; opacity: .8; }
   #embed-plot text { cursor: pointer; fill: currentColor; }
   #embed-plot text:hover, #embed-plot text.selected { fill: #06f; font-weight: bold; }
 </style>
@@ -464,6 +465,7 @@ not guessed at in JavaScript. Pick a corpus:</p>
 
 <div class="mode-toggle" id="mode-toggle"></div>
 <p class="muted" id="mode-blurb">&nbsp;</p>
+<div class="muted" id="mode-training"></div>
 
 <textarea id="prompt" aria-label="Prompt" placeholder="Type here, or tap an example below&hellip;" autofocus></textarea>
 
@@ -903,6 +905,48 @@ promptEl.addEventListener('input', () => {
 });
 
 const modeToggleEl = $('mode-toggle'), modeBlurbEl = $('mode-blurb'), examplesEl = $('examples');
+const modeTrainingEl = $('mode-training');
+
+const SPARK_W = 160, SPARK_H = 36, SPARK_PAD = 2;
+
+function buildSparkline(hist) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${SPARK_W} ${SPARK_H}`);
+  svg.setAttribute('width', SPARK_W);
+  svg.setAttribute('height', SPARK_H);
+  const title = document.createElementNS(SVG_NS, 'title');
+  title.textContent = 'training loss per logged step — the curve colophon.json records';
+  svg.appendChild(title);
+  const xs = hist.map(h => h[0]), ys = hist.map(h => h[1]);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const sx = x => SPARK_PAD + (xMax === xMin ? (SPARK_W - 2 * SPARK_PAD) / 2 :
+    (x - xMin) / (xMax - xMin) * (SPARK_W - 2 * SPARK_PAD));
+  const sy = y => SPARK_H - SPARK_PAD - (yMax === yMin ? (SPARK_H - 2 * SPARK_PAD) / 2 :
+    (y - yMin) / (yMax - yMin) * (SPARK_H - 2 * SPARK_PAD));
+  const line = document.createElementNS(SVG_NS, 'polyline');
+  line.setAttribute('points', hist.map(h => sx(h[0]) + ',' + sy(h[1])).join(' '));
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', 'currentColor');
+  line.setAttribute('stroke-width', '1');
+  svg.appendChild(line);
+  return svg;
+}
+
+function renderModeTraining(training) {
+  modeTrainingEl.textContent = '';
+  if (!training) return;  // old colophon.json without the field: render nothing
+  const parts = [];
+  if (training.steps != null) parts.push('trained ' + training.steps + ' steps');
+  if (typeof training.final_loss === 'number')
+    parts.push('final loss ' + training.final_loss.toFixed(3));
+  let text = parts.join(' → ');
+  if (training.parameters != null)
+    text += (text ? ' · ' : '') + training.parameters + ' params';
+  if (text) modeTrainingEl.appendChild(document.createTextNode(text));
+  if (Array.isArray(training.loss_history) && training.loss_history.length)
+    modeTrainingEl.appendChild(buildSparkline(training.loss_history));
+}
 
 function renderExamples(mode) {
   examplesEl.innerHTML = '';
@@ -924,6 +968,7 @@ function applyMode(mode) {
   activeMode = mode.id;
   if (browseCorpusEl) browseCorpusEl.href = '/corpus?mode=' + encodeURIComponent(activeMode);
   modeBlurbEl.textContent = mode.blurb;
+  renderModeTraining(mode.training);
   modeToggleEl.querySelectorAll('button').forEach(b =>
     b.classList.toggle('active', b.dataset.mode === mode.id));
   renderExamples(mode);
@@ -1010,6 +1055,12 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                 {"id": mid, "label": cfg.get("label", mid),
                  "blurb": cfg.get("blurb", ""),
                  "available": cfg.get("model") is not None,
+                 "training": {
+                     "steps": t.get("steps"),
+                     "final_loss": t.get("final_loss"),
+                     "loss_history": t.get("loss_history"),
+                     "parameters": t.get("parameters"),
+                 } if (t := cfg.get("training")) else None,
                  "examples": [{"label": lbl, "prompt": pr}
                               for lbl, pr in cfg.get("examples", [])]}
                 for mid, cfg in modes.items()
@@ -1163,7 +1214,7 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
 def _load_mode(mode_id, npz_path, src_dir):
     """Load one mode's model + corpus, print the same graceful warnings as
     before, and verify the corpus against the colophon.json that pairs with
-    this npz. Returns (model_or_None, files)."""
+    this npz. Returns (model_or_None, files, training_section_or_None)."""
     model = None
     try:
         model = load_model(npz_path)
@@ -1174,22 +1225,25 @@ def _load_mode(mode_id, npz_path, src_dir):
         print(f"warning [{mode_id}]: could not load model at {npz_path} ({e}) -- "
               f"this mode will be unavailable; the page still works")
 
+    json_path = colophon.colophon_json_path(npz_path)
+    try:
+        with open(json_path) as f:
+            data = json.load(f)
+        recorded_sha = data.get("data", {}).get("sha256")
+        training = data.get("training")
+    except (OSError, json.JSONDecodeError):
+        recorded_sha = None
+        training = None
+
     files = load_corpus_files(src_dir)
     if not files:
         print(f"warning [{mode_id}]: no .yaml/.yml/.txt files in {src_dir} -- "
               f"the source-echo panel will report every prompt as absent")
-    else:
-        json_path = colophon.colophon_json_path(npz_path)
-        try:
-            with open(json_path) as f:
-                recorded_sha = json.load(f).get("data", {}).get("sha256")
-        except (OSError, json.JSONDecodeError):
-            recorded_sha = None
-        if recorded_sha and corpus_sha256(files) != recorded_sha:
-            print(f"warning [{mode_id}]: corpus at {src_dir} does not match "
-                  f"{os.path.basename(json_path)}'s recorded sha256 -- it's a "
-                  f"snapshot; retrain to refresh it")
-    return model, files
+    elif recorded_sha and corpus_sha256(files) != recorded_sha:
+        print(f"warning [{mode_id}]: corpus at {src_dir} does not match "
+              f"{os.path.basename(json_path)}'s recorded sha256 -- it's a "
+              f"snapshot; retrain to refresh it")
+    return model, files, training
 
 
 def main():
@@ -1225,8 +1279,9 @@ def main():
     modes = {}
     for mode_id, meta in MODE_META.items():
         npz_path, src_dir = sources[mode_id]
-        model, files = _load_mode(mode_id, npz_path, src_dir)
-        modes[mode_id] = {"model": model, "files": files, **meta}
+        model, files, training = _load_mode(mode_id, npz_path, src_dir)
+        modes[mode_id] = {"model": model, "files": files,
+                          "training": training, **meta}
 
     # Open on an available mode: prefer the flagship, fall back to whatever loaded.
     default_mode = DEFAULT_MODE
