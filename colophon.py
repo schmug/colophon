@@ -353,12 +353,14 @@ def generate(p, stoi, itos, K, prompt="", n=240, temp=0.8, seed=0,
     "ban a char" is this, honestly). `top_k` restricts sampling to the k
     highest logits. `temp<=0` means greedy argmax (the rng is never consulted).
     `stop` ends generation the moment the continuation ends with that string
-    -- the stop-sequence concept every chat API has, made visible."""
+    -- the stop-sequence concept every chat API has, made visible. Unknown
+    prompt characters map to PAD (id 0), the same convention as
+    prompt_confidence()/inspect_prompt() -- the model has no representation for
+    them, and the records must describe the context the sampler actually used."""
     rng = np.random.default_rng(seed)
     ctx = [0] * K
     for ch in prompt:
-        if ch in stoi:
-            ctx = (ctx + [stoi[ch]])[-K:]
+        ctx = (ctx + [stoi.get(ch, 0)])[-K:]
     banned = [int(b) for b in banned_ids]
     out = []
     for _ in range(n):
