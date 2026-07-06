@@ -172,6 +172,11 @@ to black-box "observability" tools: a hosted API exposes none of this, and
 where a tool like glassboxllm has to *simulate* per-token confidence, Colophon
 reads it straight from the weights.
 
+A persistent **"browse the full corpus"** link opens `/corpus` — a zero-JS,
+per-mode index of every training file (name, line count, char count), each
+drilling into `/source`. This makes the "read the entire corpus" claim literal
+in the tool: you no longer need a verbatim prompt match to reach a file.
+
 ### Teaching mode — a corpus you can grade by eye
 
 The openness index is real and rich, but it's jargon a layperson can't check, so
@@ -289,6 +294,10 @@ python incipit.py        # serves http://127.0.0.1:8790
 built `incipit/dist/` output, so once the front-end is built, production runs
 on Python alone. If `incipit/dist/` is missing, the server degrades to a build
 help page instead of crashing.
+
+Incipit serves its own `/source` and `/corpus` routes (reusing Marginalia's
+renderers) so all three of its corpora — including the dialogue corpus that has
+no Marginalia mode — are browsable in-app.
 
 ### Honest limits
 

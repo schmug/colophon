@@ -126,7 +126,11 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   route between them and `/api/modes` drives the page copy (labels/blurbs/examples
   live server-side in `MODE_META`). A mode whose weights are absent degrades to a
   disabled toggle + 503, never a crash. OSAI is the default; elements and kana
-  are the opt-in teaching modes.
+  are the opt-in teaching modes. Also exposes the shared `corpus_index_page()`
+  renderer and its promptless `GET /corpus` route — a zero-JS, per-mode index
+  of every training file (name, line count, char count) drilling into
+  `/source` — plus a persistent "browse the full corpus" entry-point link in
+  the page, so reaching a file no longer requires a verbatim prompt match.
 - `test_marginalia.py` — stdlib `unittest`; checks `analyze_prompt()` faithfully
   wraps `inspect_prompt()` / `prompt_confidence()` (per-position records + the
   off-map signal on an OOD prompt), that `context_saliency()` and the
@@ -148,9 +152,15 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   `/api/turn` (POST — the tape, sampled continuation, and per-character records
   from `colophon.inspect_prompt()`), `/api/saliency`, `/api/modes` (drives the
   mode switcher; copy lives server-side in `MODE_META`, same convention as
-  Marginalia), `/api/scorecard`. Serves the built `incipit/dist/` output so
-  production runs on Python alone; if `dist/` is missing it degrades to a
-  build-help page, never a crash. Listens on port 8790 (Marginalia stays 8765).
+  Marginalia), `/api/scorecard`. Also serves its own `/source` and `/corpus`
+  routes, reusing `marginalia.source_page()` / `corpus_index_page()` rather
+  than duplicating them; `source_note`/`source_url` were added to its own
+  `MODE_META` (elements64, dialogue, osai) to feed their provenance footers —
+  this makes all three of Incipit's corpora browsable in-app, including the
+  dialogue corpus, which has no Marginalia mode of its own. Serves the built
+  `incipit/dist/` output so production runs on Python alone; if `dist/` is
+  missing it degrades to a build-help page, never a crash. Listens on port
+  8790 (Marginalia stays 8765).
 - `incipit/` — the Vite + React + TypeScript front-end. **The one place the
   stdlib-only constraint is deliberately loosened** — this is a build-time
   artifact, not a runtime dependency; Node is required to build it, never to
@@ -223,6 +233,12 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   `marginalia.py`, and `incipit.py` stay stdlib + NumPy; Node/npm/Vite/React
   are build-time only, confined to `incipit/`, and never a runtime dependency
   of any server. Don't let a future feature pull Node into the Python path.
+- **`/corpus`'s char total is the canonical PAD-joined length, not the sum of
+  per-row counts.** It matches `colophon.json`'s `num_characters` (the exact
+  string `load_corpus` feeds the model), so it reads slightly higher than
+  summing the per-file char column — the difference is the boundary tokens
+  between files, which are real training input the model actually sees, not
+  a bug in the table.
 
 ## Constraints / environment notes
 

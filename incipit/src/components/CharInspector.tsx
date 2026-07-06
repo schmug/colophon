@@ -1,4 +1,4 @@
-import type { CharRecord, SaliencyCell, Sampling, TurnResponse } from '../types'
+import type { CharRecord, ModeInfo, SaliencyCell, Sampling, TurnResponse } from '../types'
 import { sessionStats } from '../tapeUtils'
 
 // top_k / context_window arrive as DISPLAY glyphs (server-side _display_char);
@@ -17,8 +17,9 @@ export function CharInspector(props: {
   recordSets: CharRecord[][]
   sampling: Sampling
   onSampling: (s: Sampling) => void
+  mode: ModeInfo | null
 }) {
-  const { record, saliency, response } = props
+  const { record, saliency, response, mode } = props
   const stats = sessionStats(props.recordSets)
   const maxP = record ? Math.max(...record.top_k.map(([, p]) => p), 1e-9) : 1
   const maxD = saliency ? Math.max(...saliency.map(c => c.delta), 1e-9) : 1
@@ -104,9 +105,28 @@ export function CharInspector(props: {
       {response?.source.matched && (
         <>
           <h3>Source echo (ground truth)</h3>
-          <p className="muted">{response.source.file}:{response.source.line} —
-            “…{response.source.pre}<b>{response.source.match}</b>
-            {response.source.post}…”</p>
+          <p className="muted">
+            {mode ? (
+              <a
+                href={`/source?mode=${encodeURIComponent(mode.id)}&file=${encodeURIComponent(response.source.file ?? '')}&line=${response.source.line}#L${response.source.line}`}
+                target="_blank"
+                rel="noopener"
+              >
+                {response.source.file}:{response.source.line}
+              </a>
+            ) : (
+              <>{response.source.file}:{response.source.line}</>
+            )}
+            {' — '}“…{response.source.pre}<b>{response.source.match}</b>
+            {response.source.post}…”
+          </p>
+          {mode && (
+            <p className="muted">
+              <a href={`/corpus?mode=${encodeURIComponent(mode.id)}`} target="_blank" rel="noopener">
+                browse the full corpus →
+              </a>{' '}— read every training file, no prompt needed
+            </p>
+          )}
         </>
       )}
     </aside>

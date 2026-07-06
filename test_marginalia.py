@@ -222,6 +222,68 @@ class EmbeddingsWrapper(unittest.TestCase):
         self.assertEqual(got, want)
 
 
+class HtmlErrorPage(unittest.TestCase):
+    """The error body is factored to a module-level helper so incipit.py can
+    reuse the exact same renderer. This pins its shape."""
+
+    def test_returns_escaped_bytes_with_status_title(self):
+        body = M.html_error_page(404, "no file named <x>")
+        self.assertIsInstance(body, bytes)
+        page = body.decode("utf-8")
+        self.assertIn("<title>404</title>", page)
+        self.assertIn("no file named &lt;x&gt;", page)
+        self.assertNotIn("<x>", page)
+
+
+class CorpusIndexPage(unittest.TestCase):
+    files = [("a.yaml", "x\ny\n"), ("b.yaml", "zz\n")]
+
+    def test_lists_files_with_source_links(self):
+        page = M.corpus_index_page("Openness index", self.files, "osai")
+        self.assertIn('href="/source?mode=osai&amp;file=a.yaml"', page)
+        self.assertIn(">a.yaml</a>", page)
+        self.assertIn(">b.yaml</a>", page)
+
+    def test_summary_uses_canonical_padjoined_total(self):
+        page = M.corpus_index_page("L", self.files, "osai")
+        joined = ("\n" + C.PAD + "\n").join(t for _, t in self.files)
+        self.assertIn("2 files", page)
+        self.assertIn(f"{len(joined)} characters", page)
+        # canonical total exceeds the naive per-file char sum by the boundaries
+        self.assertGreater(len(joined), sum(len(t) for _, t in self.files))
+
+    def test_total_matches_colophon_num_characters(self):
+        # /corpus must not print a number that disagrees with colophon.json.
+        text = ("\n" + C.PAD + "\n").join(t for _, t in self.files)
+        chars, _, _ = C.build_vocab(text)
+        manifest = C.data_manifest(text, ["a.yaml", "b.yaml"], chars)
+        page = M.corpus_index_page("L", self.files, "osai")
+        self.assertIn(f"{manifest['num_characters']} characters", page)
+
+    def test_per_row_line_and_char_counts(self):
+        page = M.corpus_index_page("L", self.files, "osai")
+        # a.yaml: 2 lines (splitlines), 4 chars; b.yaml: 1 line, 3 chars
+        self.assertIn('<td class="num">2</td><td class="num">4</td>', page)
+        self.assertIn('<td class="num">1</td><td class="num">3</td>', page)
+
+    def test_escapes_names_and_note(self):
+        page = M.corpus_index_page("L", [("<b>.yaml", "x\n")], "osai",
+                                   note="<i>n</i>")
+        self.assertNotIn("<b>.yaml", page)
+        self.assertIn("&lt;b&gt;.yaml", page)
+        self.assertNotIn("<i>n</i>", page)
+        self.assertIn("&lt;i&gt;n&lt;/i&gt;", page)
+
+    def test_ships_no_javascript(self):
+        page = M.corpus_index_page("L", self.files, "osai")
+        self.assertNotIn("<script", page)
+
+    def test_empty_corpus_is_honest_not_a_crash(self):
+        page = M.corpus_index_page("L", [], "osai")
+        self.assertIn("0 files", page)
+        self.assertIn("0 characters", page)
+
+
 class SourcePageRender(unittest.TestCase):
     """source_page() renders one training file: numbered anchored lines,
     optional highlight, escaped everything, provenance footer."""
@@ -557,6 +619,57 @@ class SourceProvenance(unittest.TestCase):
             server.close()
 
 
+class CorpusRoute(unittest.TestCase):
+    """GET /corpus lists a mode's whole corpus as a zero-JS HTML page, each
+    file linking to /source. Promptless: no verbatim match required."""
+
+    @classmethod
+    def setUpClass(cls):
+        modes = {"osai": {"model": _make_model(), "files": SOURCE_FILES,
+                          "label": "Openness index",
+                          "source_note": "cite the source",
+                          "source_url": "https://example.org/db"}}
+        cls.server = _ServerFixture(modes)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.close()
+
+    def test_lists_every_file_as_html(self):
+        status, headers, body = self.server.get("/corpus")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        page = body.decode("utf-8")
+        for name, _ in SOURCE_FILES:
+            self.assertIn(f"file={name}", page)
+
+    def test_links_round_trip_to_source(self):
+        for name, _ in SOURCE_FILES:
+            status, _, _ = self.server.get(f"/source?mode=osai&file={name}")
+            self.assertEqual(status, 200)
+
+    def test_footer_carries_provenance(self):
+        _, _, body = self.server.get("/corpus")
+        page = body.decode("utf-8")
+        self.assertIn("cite the source", page)
+        self.assertIn("https://example.org/db", page)
+
+    def test_unknown_mode_400_html(self):
+        status, headers, _ = self.server.get("/corpus?mode=nope")
+        self.assertEqual(status, 400)
+        self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+
+    def test_absent_model_503_html(self):
+        server = _ServerFixture({"osai": {"model": None, "files": SOURCE_FILES,
+                                          "label": "x"}})
+        try:
+            status, headers, _ = server.get("/corpus")
+            self.assertEqual(status, 503)
+            self.assertEqual(headers["Content-Type"], "text/html; charset=utf-8")
+        finally:
+            server.close()
+
+
 class IndexHtmlContract(unittest.TestCase):
     """The single-page inspector must ship all six regions (incl. the full
     context-window sidebar) + the black-box framing banner, and must not
@@ -595,6 +708,9 @@ class IndexHtmlContract(unittest.TestCase):
 
     def test_source_link_carries_line_fragment(self):
         self.assertIn("'#L'", M.INDEX_HTML)
+
+    def test_index_has_browse_corpus_link(self):
+        self.assertIn('id="browse-corpus"', M.INDEX_HTML)
 
 
 class ModeRouting(unittest.TestCase):

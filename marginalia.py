@@ -184,6 +184,14 @@ def corpus_sha256(files):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def html_error_page(status, msg):
+    """The tiny zero-JS HTML error body shared by both servers'
+    _send_html_error. `msg` is html-escaped; the page ships no JavaScript."""
+    return ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
+            f"<title>{status}</title></head><body>"
+            f"<p>{html.escape(msg)}</p></body></html>\n").encode("utf-8")
+
+
 _SOURCE_CSS = """
   :root { color-scheme: light dark; }
   body { font-family: ui-monospace, Menlo, Consolas, monospace; max-width: 900px;
@@ -229,6 +237,57 @@ def source_page(label, filename, text, line=None, note="", url="", sha=""):
         f"<table>\n{''.join(rows)}\n</table>\n"
         f'<footer class="muted">{footer}</footer>\n</body>\n</html>\n'
     )
+
+
+def corpus_index_page(label, files, mode, note="", url="", sha=""):
+    """Render GET /corpus: a promptless index of every training file in one
+    mode's corpus, each linking to /source. Zero JS, same CSS and provenance
+    footer as source_page(). `files` is the list of (name, text) pairs already
+    in memory. Contents are NOT inlined here (that is /source's job) -- only
+    names, line counts (len(splitlines), matching source_page's rows), and raw
+    per-file char counts. The summary total is the canonical PAD-joined length
+    load_corpus feeds the model (== colophon.json num_characters), so it is
+    slightly larger than the sum of the per-row char counts -- the difference
+    is the boundary tokens the model genuinely sees. Everything name/count/
+    footer-derived is html.escape()d."""
+    rows = []
+    for name, text in files:
+        n_lines = len(text.splitlines())
+        n_chars = len(text)
+        href = ("/source?mode=" + urllib.parse.quote(mode, safe="")
+                + "&file=" + urllib.parse.quote(name, safe=""))
+        rows.append(
+            f'<tr><td><a href="{html.escape(href)}">{html.escape(name)}</a></td>'
+            f'<td class="num">{n_lines}</td>'
+            f'<td class="num">{n_chars}</td></tr>')
+    total_chars = len(("\n" + colophon.PAD + "\n").join(t for _, t in files)) \
+        if files else 0
+    head = f"{html.escape(label)} &mdash; corpus"
+    footer_bits = []
+    if note:
+        footer_bits.append(html.escape(note))
+    if url:
+        footer_bits.append(f'<a href="{html.escape(url)}">{html.escape(url)}</a>')
+    if sha:
+        footer_bits.append(
+            f"corpus sha256 (PAD-joined snapshot): <code>{html.escape(sha)}</code>")
+    footer = " &middot; ".join(footer_bits)
+    return (
+        '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        f"<title>{head}</title>\n<style>{_SOURCE_CSS}</style>\n</head>\n<body>\n"
+        f'<h1><span class="glyph">&#10087;</span> {head}</h1>\n'
+        '<p class="muted">Every file the model actually trained on, served from '
+        "the in-memory corpus &mdash; ground truth, not a link out.</p>\n"
+        f'<p class="muted">{len(files)} files &middot; {total_chars} characters. '
+        "Totals count the corpus as the model sees it, including the "
+        "<code>\\n&#9216;\\n</code> boundary token between entries; per-file "
+        "counts are raw file lengths.</p>\n"
+        '<table>\n'
+        '<tr><td class="muted">file</td>'
+        '<td class="num muted">lines</td>'
+        '<td class="num muted">chars</td></tr>\n'
+        f"{''.join(rows)}\n</table>\n"
+        f'<footer class="muted">{footer}</footer>\n</body>\n</html>\n')
 
 
 def find_source_echo(files, prompt, floor=SOURCE_SUFFIX_FLOOR, cap=SOURCE_SUFFIX_CAP,
@@ -434,6 +493,7 @@ not guessed at in JavaScript. Pick a corpus:</p>
   <div class="muted">source in training data (literal longest-suffix match, ground truth):</div>
   <div id="source-label" class="muted">&nbsp;</div>
   <div id="source-snippet" class="continuation"></div>
+  <div class="muted" style="margin-top:.35rem"><a id="browse-corpus" href="/corpus" target="_blank" rel="noopener">browse the full corpus &rarr;</a> &mdash; read every training file, no prompt needed</div>
 </div>
 
 <div class="panel">
@@ -514,6 +574,7 @@ const confPctEl = $('conf-pct'), verdictEl = $('verdict'), confFill = $('conf-fi
 const entropyVal = $('entropy-val'), offmapEl = $('offmap');
 const continuationEl = $('continuation');
 const sourceLabelEl = $('source-label'), sourceSnippetEl = $('source-snippet');
+const browseCorpusEl = $('browse-corpus');
 
 const VERDICT_LEVELS = ['confident', 'unsure', 'struggling', 'off-map', 'none'];
 
@@ -861,6 +922,7 @@ function renderExamples(mode) {
 
 function applyMode(mode) {
   activeMode = mode.id;
+  if (browseCorpusEl) browseCorpusEl.href = '/corpus?mode=' + encodeURIComponent(activeMode);
   modeBlurbEl.textContent = mode.blurb;
   modeToggleEl.querySelectorAll('button').forEach(b =>
     b.classList.toggle('active', b.dataset.mode === mode.id));
@@ -967,10 +1029,8 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                        json.dumps(obj).encode("utf-8"))
 
         def _send_html_error(self, status, msg):
-            body = ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
-                    f"<title>{status}</title></head><body>"
-                    f"<p>{html.escape(msg)}</p></body></html>\n").encode("utf-8")
-            self._send(status, "text/html; charset=utf-8", body)
+            self._send(status, "text/html; charset=utf-8",
+                       html_error_page(status, msg))
 
         def _mode_cfg(self, qs, html_errors=False):
             """Resolve ?mode= to a usable mode config, or send the right error
@@ -1080,6 +1140,19 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                                    note=cfg.get("source_note", ""),
                                    url=cfg.get("source_url", ""),
                                    sha=corpus_sha256(files) if files else "")
+                self._send(200, "text/html; charset=utf-8", body.encode("utf-8"))
+            elif parsed.path == "/corpus":
+                qs = urllib.parse.parse_qs(parsed.query)
+                cfg = self._mode_cfg(qs, html_errors=True)
+                if cfg is None:
+                    return
+                mode = qs.get("mode", [default_mode])[0]
+                files = cfg.get("files", ())
+                body = corpus_index_page(
+                    cfg.get("label", ""), files, mode,
+                    note=cfg.get("source_note", ""),
+                    url=cfg.get("source_url", ""),
+                    sha=corpus_sha256(files) if files else "")
                 self._send(200, "text/html; charset=utf-8", body.encode("utf-8"))
             else:
                 self.send_error(404)
