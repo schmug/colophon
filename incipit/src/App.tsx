@@ -153,7 +153,7 @@ export default function App() {
       <CharInspector
         record={focusedRecord} saliency={saliency} response={focusedResponse}
         recordSets={Object.values(modelData).map(d => d.records)}
-        sampling={sampling} onSampling={setSampling}
+        sampling={sampling} onSampling={setSampling} mode={mode}
       />
     </div>
   )
