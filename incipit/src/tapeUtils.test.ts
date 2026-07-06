@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTape, buildTapeCells, median, sessionStats, windowSpan } from './tapeUtils'
+import { buildTape, buildTapeCells, fellOffBefore, median, sessionStats, windowSpan } from './tapeUtils'
 import type { CharRecord, Turn } from './types'
 
 const t = (id: string, role: 'user' | 'model', text: string, excluded = false): Turn =>
@@ -37,6 +37,15 @@ describe('windowSpan', () => {
   it('covers the K chars before pos, clamped at the tape start', () => {
     expect(windowSpan(10, 4)).toEqual({ start: 6, end: 10 })
     expect(windowSpan(2, 12)).toEqual({ start: 0, end: 2 })
+  })
+})
+
+describe('fellOffBefore', () => {
+  it('counts chars beyond the newest prediction\'s K-char reach', () => {
+    expect(fellOffBefore(100, 64)).toBe(36)
+    expect(fellOffBefore(10, 64)).toBe(0)
+    expect(fellOffBefore(64, 64)).toBe(0)
+    expect(fellOffBefore(1000, null)).toBe(0)
   })
 })
 
