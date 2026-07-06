@@ -184,6 +184,14 @@ def corpus_sha256(files):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def html_error_page(status, msg):
+    """The tiny zero-JS HTML error body shared by both servers'
+    _send_html_error. `msg` is html-escaped; the page ships no JavaScript."""
+    return ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
+            f"<title>{status}</title></head><body>"
+            f"<p>{html.escape(msg)}</p></body></html>\n").encode("utf-8")
+
+
 _SOURCE_CSS = """
   :root { color-scheme: light dark; }
   body { font-family: ui-monospace, Menlo, Consolas, monospace; max-width: 900px;
@@ -967,10 +975,8 @@ def make_handler(modes, default_mode=DEFAULT_MODE):
                        json.dumps(obj).encode("utf-8"))
 
         def _send_html_error(self, status, msg):
-            body = ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
-                    f"<title>{status}</title></head><body>"
-                    f"<p>{html.escape(msg)}</p></body></html>\n").encode("utf-8")
-            self._send(status, "text/html; charset=utf-8", body)
+            self._send(status, "text/html; charset=utf-8",
+                       html_error_page(status, msg))
 
         def _mode_cfg(self, qs, html_errors=False):
             """Resolve ?mode= to a usable mode config, or send the right error

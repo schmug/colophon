@@ -222,6 +222,19 @@ class EmbeddingsWrapper(unittest.TestCase):
         self.assertEqual(got, want)
 
 
+class HtmlErrorPage(unittest.TestCase):
+    """The error body is factored to a module-level helper so incipit.py can
+    reuse the exact same renderer. This pins its shape."""
+
+    def test_returns_escaped_bytes_with_status_title(self):
+        body = M.html_error_page(404, "no file named <x>")
+        self.assertIsInstance(body, bytes)
+        page = body.decode("utf-8")
+        self.assertIn("<title>404</title>", page)
+        self.assertIn("no file named &lt;x&gt;", page)
+        self.assertNotIn("<x>", page)
+
+
 class SourcePageRender(unittest.TestCase):
     """source_page() renders one training file: numbered anchored lines,
     optional highlight, escaped everything, provenance footer."""
