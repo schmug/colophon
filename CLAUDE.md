@@ -200,7 +200,10 @@ Global flags (`--src`, `--steps`, `--seed`) go **before** the subcommand
   because the architecture was always meant to be swappable — it changes
   capability, not the argument. But torch stays opt-in only: never imported on
   the default path, never a hard dependency (`requirements.txt` is numpy only),
-  and Marginalia stays stdlib-only.
+  and Marginalia stays stdlib-only. Note: Marginalia and Incipit are
+  MLP-only for now (`marginalia.load_model` loads MLP weights only); a
+  transformer `.npz` degrades to an unavailable mode — documented in the
+  README.
 - **It overfits the tiny sample. That's on-theme.** Don't add regularization to
   "improve" the 3-file demo; the fix is more data (the real index), not hiding it.
 - **The entropy-fooled-by-Japanese result is a feature.** On the 3-file *sample*

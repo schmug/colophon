@@ -27,10 +27,11 @@ closed models you get neither the corpus to check against nor, often, the raw
 signals to compute — which is why the OSAI Index exists: most systems score red on
 data transparency.
 
-**Solution.** Full openness across all 14 dimensions turns every trust question
-from an estimate into a fact you can audit. Colophon is 10/12 open (honestly red
-on "preprint" and "paper" — no free greens); a typical closed API model is 0/12.
-The contrast *is* the pitch.
+**Solution.** Full openness across the index's dimensions turns every trust question
+from an estimate into a fact you can audit. Colophon is 10/12 open (the index defines
+14 dimensions; the two access-method dimensions don't apply to a local artifact, so
+12 are scored — honestly red on "preprint" and "paper," no free greens); a typical
+closed API model is 0/12. The contrast *is* the pitch.
 
 ## Ground-truth end of the same spectrum
 
@@ -128,6 +129,12 @@ entropy/off-map confidence signals work identically on either arch, and
 `colophon.json`'s training section still records exactly what was trained
 (`"arch": "transformer"` or `"mlp"`). Omitting `--arch` keeps today's exact
 dependency-free behavior — torch is never imported unless you ask for it.
+
+One caveat: the two UIs are MLP-only for now. `marginalia.py` and `incipit.py`
+load weights via a loader that expects the NumPy MLP's arrays, so a
+transformer-trained `.npz` shows up as "mode unavailable" rather than being
+inspectable. The CLI (`generate`, `demo`) handles both. If you want to inspect
+a transformer run, that loader is the place to extend (`marginalia.load_model`).
 
 Outputs (gitignored, regenerable): `colophon.npz` (weights) and `colophon.json`
 — the model's own colophon: data section (datasheet), training section (model
