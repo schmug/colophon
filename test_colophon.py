@@ -620,6 +620,48 @@ class SamplingControls(unittest.TestCase):
                          "generation must halt at the stop string")
 
 
+class GenerateUnknownCharHandling(unittest.TestCase):
+    """generate() must map unknown (off-map) prompt characters to PAD (id 0),
+    the same convention prompt_confidence()/inspect_prompt() already use --
+    otherwise the sampler conditions on a shortened context that the rest of
+    the inspection machinery never sees."""
+
+    def setUp(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(text)
+        self.p = C.init_params(len(self.chars), 8, 4, 16, seed=0)
+        self.K = 4
+        self.unk = "日"
+        self.assertNotIn(self.unk, self.stoi)
+
+    def test_generate_unknown_char_equals_explicit_pad(self):
+        a = C.generate(self.p, self.stoi, self.itos, self.K,
+                       "cl" + self.unk + "ass", n=20, seed=3)
+        b = C.generate(self.p, self.stoi, self.itos, self.K,
+                       "cl" + "\x00" + "ass", n=20, seed=3)
+        self.assertEqual(a[len("cl" + self.unk + "ass"):],
+                         b[len("cl\x00ass"):])
+
+    def test_generate_known_prompts_unchanged_by_unknown_handling(self):
+        a = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=20, seed=5)
+        b = C.generate(self.p, self.stoi, self.itos, self.K, "class", n=20, seed=5)
+        self.assertEqual(a, b)
+        with_unk = C.generate(self.p, self.stoi, self.itos, self.K,
+                              "class" + self.unk, n=20, seed=5)
+        with_pad = C.generate(self.p, self.stoi, self.itos, self.K,
+                              "class" + "\x00", n=20, seed=5)
+        self.assertEqual(with_unk[len("class") + 1:], with_pad[len("class") + 1:])
+
+    def test_inspect_prompt_records_match_sampler_context_on_ood(self):
+        prompt = "cl" + self.unk + "ass"
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, prompt,
+                                n_continuation=10, seed=7)
+        cont = "".join(r["char"] for r in recs if r["is_continuation"])
+        want = C.generate(self.p, self.stoi, self.itos, self.K, prompt,
+                          n=10, seed=7)
+        self.assertEqual(cont, want[len(prompt):])
+
+
 class InspectPromptSampling(unittest.TestCase):
     """inspect_prompt must sample its continuation with the caller's knobs --
     the records then describe exactly what generate() would emit."""
