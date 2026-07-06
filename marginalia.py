@@ -239,6 +239,57 @@ def source_page(label, filename, text, line=None, note="", url="", sha=""):
     )
 
 
+def corpus_index_page(label, files, mode, note="", url="", sha=""):
+    """Render GET /corpus: a promptless index of every training file in one
+    mode's corpus, each linking to /source. Zero JS, same CSS and provenance
+    footer as source_page(). `files` is the list of (name, text) pairs already
+    in memory. Contents are NOT inlined here (that is /source's job) -- only
+    names, line counts (len(splitlines), matching source_page's rows), and raw
+    per-file char counts. The summary total is the canonical PAD-joined length
+    load_corpus feeds the model (== colophon.json num_characters), so it is
+    slightly larger than the sum of the per-row char counts -- the difference
+    is the boundary tokens the model genuinely sees. Everything name/count/
+    footer-derived is html.escape()d."""
+    rows = []
+    for name, text in files:
+        n_lines = len(text.splitlines())
+        n_chars = len(text)
+        href = ("/source?mode=" + urllib.parse.quote(mode, safe="")
+                + "&file=" + urllib.parse.quote(name, safe=""))
+        rows.append(
+            f'<tr><td><a href="{html.escape(href)}">{html.escape(name)}</a></td>'
+            f'<td class="num">{n_lines}</td>'
+            f'<td class="num">{n_chars}</td></tr>')
+    total_chars = len(("\n" + colophon.PAD + "\n").join(t for _, t in files)) \
+        if files else 0
+    head = f"{html.escape(label)} &mdash; corpus"
+    footer_bits = []
+    if note:
+        footer_bits.append(html.escape(note))
+    if url:
+        footer_bits.append(f'<a href="{html.escape(url)}">{html.escape(url)}</a>')
+    if sha:
+        footer_bits.append(
+            f"corpus sha256 (PAD-joined snapshot): <code>{html.escape(sha)}</code>")
+    footer = " &middot; ".join(footer_bits)
+    return (
+        '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        f"<title>{head}</title>\n<style>{_SOURCE_CSS}</style>\n</head>\n<body>\n"
+        f'<h1><span class="glyph">&#10087;</span> {head}</h1>\n'
+        '<p class="muted">Every file the model actually trained on, served from '
+        "the in-memory corpus &mdash; ground truth, not a link out.</p>\n"
+        f'<p class="muted">{len(files)} files &middot; {total_chars} characters. '
+        "Totals count the corpus as the model sees it, including the "
+        "<code>\\n&#9216;\\n</code> boundary token between entries; per-file "
+        "counts are raw file lengths.</p>\n"
+        '<table>\n'
+        '<tr><td class="muted">file</td>'
+        '<td class="num muted">lines</td>'
+        '<td class="num muted">chars</td></tr>\n'
+        f"{''.join(rows)}\n</table>\n"
+        f'<footer class="muted">{footer}</footer>\n</body>\n</html>\n')
+
+
 def find_source_echo(files, prompt, floor=SOURCE_SUFFIX_FLOOR, cap=SOURCE_SUFFIX_CAP,
                       context=SOURCE_CONTEXT_CHARS):
     """Literal longest-matching-suffix search over `files` (a list of

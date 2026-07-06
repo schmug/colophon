@@ -235,6 +235,55 @@ class HtmlErrorPage(unittest.TestCase):
         self.assertNotIn("<x>", page)
 
 
+class CorpusIndexPage(unittest.TestCase):
+    files = [("a.yaml", "x\ny\n"), ("b.yaml", "zz\n")]
+
+    def test_lists_files_with_source_links(self):
+        page = M.corpus_index_page("Openness index", self.files, "osai")
+        self.assertIn('href="/source?mode=osai&amp;file=a.yaml"', page)
+        self.assertIn(">a.yaml</a>", page)
+        self.assertIn(">b.yaml</a>", page)
+
+    def test_summary_uses_canonical_padjoined_total(self):
+        page = M.corpus_index_page("L", self.files, "osai")
+        joined = ("\n" + C.PAD + "\n").join(t for _, t in self.files)
+        self.assertIn("2 files", page)
+        self.assertIn(f"{len(joined)} characters", page)
+        # canonical total exceeds the naive per-file char sum by the boundaries
+        self.assertGreater(len(joined), sum(len(t) for _, t in self.files))
+
+    def test_total_matches_colophon_num_characters(self):
+        # /corpus must not print a number that disagrees with colophon.json.
+        text = ("\n" + C.PAD + "\n").join(t for _, t in self.files)
+        chars, _, _ = C.build_vocab(text)
+        manifest = C.data_manifest(text, ["a.yaml", "b.yaml"], chars)
+        page = M.corpus_index_page("L", self.files, "osai")
+        self.assertIn(f"{manifest['num_characters']} characters", page)
+
+    def test_per_row_line_and_char_counts(self):
+        page = M.corpus_index_page("L", self.files, "osai")
+        # a.yaml: 2 lines (splitlines), 4 chars; b.yaml: 1 line, 3 chars
+        self.assertIn('<td class="num">2</td><td class="num">4</td>', page)
+        self.assertIn('<td class="num">1</td><td class="num">3</td>', page)
+
+    def test_escapes_names_and_note(self):
+        page = M.corpus_index_page("L", [("<b>.yaml", "x\n")], "osai",
+                                   note="<i>n</i>")
+        self.assertNotIn("<b>.yaml", page)
+        self.assertIn("&lt;b&gt;.yaml", page)
+        self.assertNotIn("<i>n</i>", page)
+        self.assertIn("&lt;i&gt;n&lt;/i&gt;", page)
+
+    def test_ships_no_javascript(self):
+        page = M.corpus_index_page("L", self.files, "osai")
+        self.assertNotIn("<script", page)
+
+    def test_empty_corpus_is_honest_not_a_crash(self):
+        page = M.corpus_index_page("L", [], "osai")
+        self.assertIn("0 files", page)
+        self.assertIn("0 characters", page)
+
+
 class SourcePageRender(unittest.TestCase):
     """source_page() renders one training file: numbered anchored lines,
     optional highlight, escaped everything, provenance footer."""
