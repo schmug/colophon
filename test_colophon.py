@@ -682,6 +682,78 @@ class InspectPromptSampling(unittest.TestCase):
         self.assertEqual(a, b)
 
 
+class GenerateUnknownCharPadMapping(unittest.TestCase):
+    """generate() must map unknown prompt chars to PAD (id 0) -- the one
+    convention prompt_confidence()/inspect_prompt()/_full_context_ids()
+    already share. The old behavior silently SKIPPED unknowns, so the
+    inspection records described a context the sampler never used."""
+
+    def setUp(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        self.chars, self.stoi, self.itos = C.build_vocab(text)
+        self.p = C.init_params(len(self.chars), 8, 6, 32, seed=0)
+        self.K = 6
+        self.unk = "日"  # not in the sample vocab
+        self.assertNotIn(self.unk, self.stoi)
+
+    def test_generate_unknown_char_equals_explicit_pad(self):
+        # An unknown char and an explicit PAD ("\x00", always id 0) must
+        # condition identically -- same ids in, same rng draws, same bytes out.
+        pa = "class: " + self.unk + "open"
+        pb = "class: " + "\x00" + "open"
+        a = C.generate(self.p, self.stoi, self.itos, self.K, prompt=pa,
+                       n=20, seed=3)
+        b = C.generate(self.p, self.stoi, self.itos, self.K, prompt=pb,
+                       n=20, seed=3)
+        self.assertEqual(a[len(pa):], b[len(pb):])
+        # Greedy with the unknown at the very end is the discriminating case:
+        # under the old skip behavior "class: 日" conditioned exactly like
+        # "class: " (measured: the two continuations diverge on this fixture),
+        # so this pair fails on a regression to skipping. If a code change
+        # ever makes the skip/pad continuations coincide here, pick a fixture
+        # where they diverge -- do NOT weaken the pad-equality assertion.
+        end_unk = "class: " + self.unk
+        end_pad = "class: " + "\x00"
+        end_skip = "class: "
+        g_unk = C.generate(self.p, self.stoi, self.itos, self.K,
+                           prompt=end_unk, n=20, temp=0)[len(end_unk):]
+        g_pad = C.generate(self.p, self.stoi, self.itos, self.K,
+                           prompt=end_pad, n=20, temp=0)[len(end_pad):]
+        g_skip = C.generate(self.p, self.stoi, self.itos, self.K,
+                            prompt=end_skip, n=20, temp=0)[len(end_skip):]
+        self.assertEqual(g_unk, g_pad)
+        self.assertNotEqual(g_unk, g_skip,
+                            "skip/pad continuations coincide -- fixture no "
+                            "longer discriminates; choose one that does")
+
+    def test_generate_known_prompts_deterministic(self):
+        # Prompts of entirely known chars are untouched by the PAD-mapping
+        # change: same call, same bytes, across repeated calls.
+        known = "class: open"
+        a = C.generate(self.p, self.stoi, self.itos, self.K, prompt=known,
+                       n=20, seed=5)
+        b = C.generate(self.p, self.stoi, self.itos, self.K, prompt=known,
+                       n=20, seed=5)
+        self.assertEqual(a, b)
+        c = C.generate(self.p, self.stoi, self.itos, self.K,
+                       prompt=known + self.unk, n=20, seed=5)
+        d = C.generate(self.p, self.stoi, self.itos, self.K,
+                       prompt=known + "\x00", n=20, seed=5)
+        self.assertEqual(c[len(known) + 1:], d[len(known) + 1:])
+
+    def test_inspect_prompt_records_match_sampler_context_on_ood(self):
+        # On an OOD prompt the continuation embedded in inspect_prompt's
+        # records must be byte-identical to generate() with the same knobs --
+        # the records and the sampler now share one ingestion convention.
+        prompt = "class: " + self.unk + "open"
+        recs = C.inspect_prompt(self.p, self.stoi, self.itos, self.K, prompt,
+                                n_continuation=10, seed=7)
+        cont = "".join(r["char"] for r in recs if r["is_continuation"])
+        want = C.generate(self.p, self.stoi, self.itos, self.K, prompt=prompt,
+                          n=10, seed=7)
+        self.assertEqual(cont, want[len(prompt):])
+
+
 class CliHyperparamFlags(unittest.TestCase):
     """--K/--E/--H must reach train_model and shape the saved weights. One
     training step on the bundled sample keeps this end-to-end test fast."""
