@@ -41,6 +41,7 @@ textarea, select { font: inherit; color: inherit; background: #0d1014;
 .tape-cell.model { background: #2a63; }
 .tape-cell.marker { opacity: .45; }
 .tape-cell.in-window { outline: 2px solid #06f; }
+.tape-cell.fell-off-cell { opacity: .3; text-decoration: line-through; }
 .turn-row { display: flex; gap: .4rem; align-items: flex-start; margin: .25rem 0; }
 .turn-row.excluded { opacity: .4; }
 .turn-row label { min-width: 4.5rem; font-size: .8rem; }
@@ -58,6 +59,7 @@ textarea, select { font: inherit; color: inherit; background: #0d1014;
 .candidates { border: 1px solid #2a3340; border-radius: 6px; padding: .6rem; }
 .candidate { border-top: 1px dashed #2a3340; padding: .5rem 0; }
 .cand-head { font-size: .8rem; opacity: .8; margin-bottom: .2rem; }
+.cand-verdict { font-size: .8rem; margin: .1rem 0; }
 .cand-text { white-space: pre-wrap; word-break: break-word; margin: .3rem 0; }
 .composer { display: flex; gap: .5rem; margin: .8rem 0 .4rem; }
 .composer textarea { flex: 1; min-height: 3rem; padding: .4rem; }

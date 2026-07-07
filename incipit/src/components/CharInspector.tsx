@@ -47,7 +47,7 @@ export function CharInspector(props: {
             )}
             {record.off_map && <span className="off"> · OFF-MAP</span>}
           </div>
-          <h3>Top-k next-char distribution (real logits)</h3>
+          <h3>What it considered next (top-k, read from real logits — not a summary)</h3>
           {record.top_k.map(([ch, p], i) => (
             <div key={i} className="barrow">
               <span className="lab">{ch}</span>
@@ -65,7 +65,7 @@ export function CharInspector(props: {
                 title={record.context_types[i]}>{c}</span>
             ))}
           </div>
-          <h3>Context saliency (occlusion — real attribution)</h3>
+          <h3>Which remembered characters mattered (hide each one, measure how far the prediction moves)</h3>
           {!saliency && <p className="muted">measuring…</p>}
           {saliency && (
             <div className="window">
@@ -88,12 +88,21 @@ export function CharInspector(props: {
           is set to −∞ before sampling and generation reroutes. “The model
           chose X” means “X won a probability contest you can rig.”</p>
       ) : (
-        props.sampling.banned_chars.map(ch => (
-          <button key={ch} className="banned-chip" title="click to unban"
-            onClick={() => unban(ch)}>
-            {glyph(ch)} ✕
-          </button>
-        ))
+        <>
+          {props.sampling.banned_chars.map(ch => (
+            <button key={ch} className="banned-chip" title="click to unban"
+              onClick={() => unban(ch)}>
+              {glyph(ch)} ✕
+            </button>
+          ))}
+          {response && (
+            <p className="muted">applied on the last turn:{' '}
+              {response.banned_applied.length
+                ? response.banned_applied.map(glyph).join(' ')
+                : "none (those characters are not in this model's vocabulary — a logit that doesn't exist can't be masked)"}
+            </p>
+          )}
+        </>
       )}
 
       <h3>Session</h3>
@@ -102,6 +111,16 @@ export function CharInspector(props: {
         median entropy {stats.medianEntropy.toFixed(3)} · off-map{' '}
         {stats.offMapCount}
       </p>
+      {response && (
+        <>
+          <h3>Turn verdict (plain English)</h3>
+          <p className="muted">{response.verdict}</p>
+          {response.off_map && (
+            <p className="muted">never-seen characters this turn:{' '}
+              {response.unknown_chars.map(glyph).join(' ')}</p>
+          )}
+        </>
+      )}
       {response?.source.matched && (
         <>
           <h3>Source echo (ground truth)</h3>

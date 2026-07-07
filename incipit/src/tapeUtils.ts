@@ -43,6 +43,12 @@ export function windowSpan(pos: number, K: number): { start: number; end: number
   return { start: Math.max(0, pos - K), end: pos }
 }
 
+/** Cells at positions < tapeLen - K are beyond the newest prediction's
+ *  reach: nothing the model does next can see them. */
+export function fellOffBefore(tapeLen: number, K: number | null): number {
+  return K !== null && tapeLen > K ? tapeLen - K : 0
+}
+
 export function median(xs: number[]): number {
   if (!xs.length) return 0
   const s = [...xs].sort((a, b) => a - b)

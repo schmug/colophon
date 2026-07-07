@@ -93,9 +93,13 @@ export function ConversationPanel(props: {
             <div key={i} className="candidate">
               <div className="cand-head">
                 {CAND_LABELS[i]} · {c.off_map
-                  ? 'OFF-MAP — ignore the % (see verdict)'
+                  ? 'OFF-MAP — ignore the %'
                   : `${c.confidence_pct}% sure`}
               </div>
+              <div className="cand-verdict muted">{c.verdict}</div>
+              {c.off_map && c.unknown_chars.length > 0 && (
+                <div className="cand-verdict muted">never seen: {c.unknown_chars.join(' ')}</div>
+              )}
               <div className="cand-text">
                 {c.records.filter(r => r.is_continuation).map((r, j) => (
                   <span key={j} style={{ background: entColor(r.entropy) }}>
@@ -130,13 +134,15 @@ export function ConversationPanel(props: {
             <option value="chat">chat (user:/model:)</option>
           </select>
         </label>
-        <label>temperature {props.sampling.temperature.toFixed(1)}
+        <label title="how adventurous the sampling is: 0 = always pick the single most likely next character; higher = give lower-ranked characters a real chance">
+          temperature {props.sampling.temperature.toFixed(1)}
           <input type="range" min={0} max={2} step={0.1}
             value={props.sampling.temperature}
             onChange={e => props.onSampling({ ...props.sampling,
               temperature: Number(e.target.value) })} />
         </label>
-        <label>top-k {props.sampling.top_k || 'off'}
+        <label title="restrict sampling to the k most likely next characters; 'off' means the whole vocabulary stays in play">
+          top-k {props.sampling.top_k || 'off'}
           <input type="range" min={0} max={20} step={1}
             value={props.sampling.top_k}
             onChange={e => props.onSampling({ ...props.sampling,
