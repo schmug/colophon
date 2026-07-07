@@ -188,6 +188,31 @@ class ColophonJson(unittest.TestCase):
         self.assertEqual(col["data"], dman)
 
 
+class LossHistory(unittest.TestCase):
+    """train_model must persist the (step, loss) curve it already prints, not
+    just final_loss -- the colophon records how the model learned, and the
+    curve must survive the JSON round-trip into colophon.json unchanged."""
+
+    def test_manifest_records_loss_history(self):
+        text, _ = C.load_corpus(C.DEFAULT_SRC)
+        chars, stoi, _ = C.build_vocab(text)
+        # Same tiny-matrix FP-flag suppression as ColophonJson above.
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            _, man = C.train_model(text, stoi, chars, K=4, E=8, H=16,
+                                   steps=30, log_every=10)
+        hist = man["loss_history"]
+        self.assertIsInstance(hist, list)
+        self.assertTrue(hist, "loss_history must not be empty")
+        for entry in hist:
+            self.assertIsInstance(entry, list)
+            self.assertEqual(len(entry), 2)
+        self.assertEqual(hist[0][0], 1, "the first logged step is step 1")
+        self.assertEqual(hist[-1], [30, man["final_loss"]],
+                         "the last entry is the final logged step and loss")
+        self.assertEqual(json.loads(json.dumps(hist)), hist,
+                         "the curve must round-trip through JSON unchanged")
+
+
 @unittest.skipUnless(_HAS_TORCH, "torch not installed -- --arch transformer is optional")
 class TransformerArch(unittest.TestCase):
     """The optional --arch transformer path: torch is lazily imported, but once
